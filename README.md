@@ -125,7 +125,7 @@ docker push us-central1-docker.pkg.dev/<GCP_PROJECT_ID>/fastapi-app/fastapi:late
 The repository includes a script to automatically set up Cloud Build triggers for all environments. The triggers are already configured with the correct repository information:
 
 - Repository Owner: `fddiferd`
-- Repository Name: `wedge-golf`
+- Repository Name: `fast-api-app`
 
 To set up the Cloud Build triggers for automatic deployment:
 

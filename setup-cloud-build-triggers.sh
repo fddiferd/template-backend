@@ -5,7 +5,7 @@ DEV_PROJECT_ID="wedge-golf-dev"
 STAGING_PROJECT_ID="wedge-golf-staging"
 PROD_PROJECT_ID="wedge-golf-prod"
 REPO_OWNER="fddiferd"  # Your GitHub username or organization
-REPO_NAME="wedge-golf"  # Your repository name
+REPO_NAME="fast-api-app"  # Your repository name
 
 # Function to create a Cloud Build trigger
 create_trigger() {
