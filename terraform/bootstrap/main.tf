@@ -74,7 +74,8 @@ resource "google_project_service" "required_apis" {
       "firestore.googleapis.com",
       "cloudresourcemanager.googleapis.com",
       "serviceusage.googleapis.com",
-      "artifactregistry.googleapis.com"
+      "artifactregistry.googleapis.com",
+      "cloudbuild.googleapis.com"
     ]) : "${pair[0]}-${pair[1]}" => {
       project = var.project_ids[pair[0]]
       api     = pair[1]
@@ -103,6 +104,17 @@ resource "google_artifact_registry_repository" "wedge_api" {
   depends_on = [google_project_service.required_apis]
 }
 
+# Enable Cloud Build service account
+resource "google_project_service_identity" "cloudbuild" {
+  for_each = var.project_ids
+  
+  provider = google-beta
+  project  = each.value
+  service  = "cloudbuild.googleapis.com"
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # Grant permissions to push/pull images
 resource "google_artifact_registry_repository_iam_member" "ci_cd_access" {
   for_each = var.project_ids
@@ -112,7 +124,9 @@ resource "google_artifact_registry_repository_iam_member" "ci_cd_access" {
   location   = google_artifact_registry_repository.wedge_api[each.key].location
   repository = google_artifact_registry_repository.wedge_api[each.key].name
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${each.value}@cloudbuild.gserviceaccount.com"
+  member     = "serviceAccount:${google_project_service_identity.cloudbuild[each.key].email}"
+
+  depends_on = [google_project_service_identity.cloudbuild]
 }
 
 # Grant permissions to Cloud Run to pull images
