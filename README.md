@@ -1,6 +1,24 @@
 # Wedge Golf Backend
 
-This repository contains the backend service for Wedge Golf, built with FastAPI and deployed on Google Cloud Run.
+A FastAPI-based backend service for Wedge Golf.
+
+## API URLs
+
+The API is available at the following URLs for each environment:
+
+- Development: https://wedge-api-b7p7avi2qa-uc.a.run.app
+- Staging: Not deployed
+- Production: https://wedge-api-rhmirzqk6q-uc.a.run.app
+
+To get the current URL for any environment, run:
+```bash
+gcloud run services describe wedge-api \
+  --platform managed \
+  --region us-central1 \
+  --project wedge-golf-{env} \
+  --format="value(status.url)"
+```
+Replace `{env}` with `dev`, `staging`, or `prod`.
 
 ## Project Structure
 
