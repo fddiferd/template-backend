@@ -1,0 +1,7 @@
+Terraform v1.11.1
+on darwin_arm64
++ provider registry.terraform.io/hashicorp/google v6.28.0
++ provider registry.terraform.io/hashicorp/google-beta v6.28.0
+
+Your version of Terraform is out of date! The latest version
+is 1.11.3. You can update by downloading from https://www.terraform.io/downloads.html

@@ -2,23 +2,20 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock ./
+# Copy project files
+COPY pyproject.toml ./
+COPY src/ ./src/
 
-# Install poetry and dependencies
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --without dev
-
-# Copy application code
-COPY . .
+# Install dependencies using pip
+RUN pip install --upgrade pip && \
+    pip install .
 
 # Set environment variables
 ENV PORT=8000
 ENV HOST=0.0.0.0
 
-# Expose the port
+# Expose port
 EXPOSE 8000
 
-# Run the application with Uvicorn
+# Run the application
 CMD uvicorn src.app:app --host ${HOST} --port ${PORT}

@@ -1,11 +1,11 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/wedge-api:$COMMIT_SHA', '.']
+    args: ['build', '-t', 'gcr.io/wedge-golf-dev/wedge-api:$COMMIT_SHA', '.']
   
-  # Push the container image to Container Registry
+  # Push the container image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/wedge-api:$COMMIT_SHA']
+    args: ['push', 'gcr.io/wedge-golf-dev/wedge-api:$COMMIT_SHA']
   
   # Deploy container image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -13,24 +13,21 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'wedge-api-dev'
+      - 'wedge-api'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/wedge-api:$COMMIT_SHA'
+      - 'gcr.io/wedge-golf-dev/wedge-api:$COMMIT_SHA'
       - '--region'
       - 'us-central1'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8000'
-      - '--memory'
-      - '512Mi'
+      - '--project'
+      - 'wedge-golf-dev'
       - '--set-env-vars'
-      - 'ENVIRONMENT=development,FIREBASE_CRED_PATH=service_accounts/firebase-dev.json'
+      - 'ENVIRONMENT=dev,FIREBASE_CRED_PATH=service_accounts/firebase-dev.json'
   
 # Tag the image for easier reference
 images:
-  - 'gcr.io/$PROJECT_ID/wedge-api:$COMMIT_SHA'
+  - 'gcr.io/wedge-golf-dev/wedge-api:$COMMIT_SHA'
 
 # Set timeout to 20 minutes
 timeout: 1200s 

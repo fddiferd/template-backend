@@ -1,4 +1,4 @@
-
 output "cloud_run_url" {
-  value = google_cloud_run_v2_service.fastapi_service.uri
+  description = "The URL of the Cloud Run service"
+  value       = google_cloud_run_v2_service.api_service.uri
 }
