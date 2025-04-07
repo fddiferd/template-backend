@@ -21,7 +21,7 @@ create_trigger() {
     --repository="https://github.com/$REPO_OWNER/$REPO_NAME" \
     --name="deploy-$branch" \
     --description="$description" \
-    --branch="^$branch$" \
+    --branch-pattern="^$branch$" \
     --build-config="$config_file"
   
   echo "Trigger created for $branch in project $project_id"
