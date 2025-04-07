@@ -18,10 +18,10 @@ create_trigger() {
   
   gcloud builds triggers create github \
     --project=$project_id \
-    --repo="https://github.com/$REPO_OWNER/$REPO_NAME" \
+    --repository="https://github.com/$REPO_OWNER/$REPO_NAME" \
     --name="deploy-$branch" \
     --description="$description" \
-    --branch-pattern="^$branch$" \
+    --branch="^$branch$" \
     --build-config="$config_file"
   
   echo "Trigger created for $branch in project $project_id"
