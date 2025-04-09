@@ -57,18 +57,17 @@ def test_cicd_terraform_configuration():
     with open(tf_path, 'r') as f:
         content = f.read()
         
-        # Check for dev trigger configuration
-        assert 'google_cloudbuild_trigger' in content, "CICD should configure Cloud Build triggers"
+        # Check for dev trigger configuration (no main branches)
         assert 'dev_trigger' in content, "CICD should configure dev triggers"
-        assert 'branch = "^(?!main$).*$"' in content, "Dev trigger should match non-main branches"
+        assert 'branch = "^(?!master$).*$"' in content, "Dev trigger should match non-master branches"
         
-        # Check for staging trigger configuration (main branch)
+        # Check for staging trigger configuration (master branch)
         assert 'staging_trigger' in content, "CICD should configure staging triggers"
-        assert 'branch = "main"' in content, "Staging trigger should match main branch"
+        assert 'branch = "master"' in content, "Staging trigger should match master branch"
         
-        # Check for production trigger configuration (tags)
-        assert 'prod_trigger' in content, "CICD should configure production triggers"
-        assert 'tag = "^v.*$"' in content, "Production trigger should match tags starting with v"
+        # Check for prod trigger configuration (version tags)
+        assert 'prod_trigger' in content, "CICD should configure prod triggers"
+        assert 'tag = "^v.*$"' in content, "Prod trigger should match version tags"
 
 
 def test_cicd_permissions():
@@ -92,8 +91,8 @@ def test_branch_strategy():
         result = subprocess.run(['git', 'branch', '-a'], capture_output=True, text=True, check=True)
         branches = result.stdout
         
-        # Look for main branch
-        assert 'main' in branches or 'origin/main' in branches, "Repository should have a main branch"
+        # Look for master branch
+        assert 'master' in branches or 'origin/master' in branches, "Repository should have a master branch"
         
     except subprocess.CalledProcessError:
         pytest.skip("Not in a git repository or git command failed - skipping branch check")

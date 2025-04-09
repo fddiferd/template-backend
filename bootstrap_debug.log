@@ -1,0 +1,112 @@
++ set -e
++ echo ====================================================================
+====================================================================
++ echo '            GCP Project Bootstrap Tool                               '
+            GCP Project Bootstrap Tool                               
++ echo ====================================================================
+====================================================================
++ echo
+
++ echo 'LOADING CONFIGURATION'
+LOADING CONFIGURATION
++ echo ---------------------
+---------------------
++ echo 'Loading environment variables...'
+Loading environment variables...
++ source .env
+++ GCP_BILLING_ACCOUNT_ID=01224A-A47992-31AB42
+++ DEV_SCHEMA_NAME=fddiferd
+++ MODE=staging
+++ SKIP_TERRAFORM=false
+++ GITHUB_ALREADY_CONNECTED=false
++ echo 'Loading project configuration...'
+Loading project configuration...
+++ extract_config_value gcp_project_id
+++ local key=gcp_project_id
+++ local value
++++ grep '^gcp_project_id: str = ' config
++++ sed -E 's/^gcp_project_id: str = ['\''"](.*)['\''"].*$/\1/'
+++ value=wb-backend-demo
+++ echo wb-backend-demo
++ GCP_PROJECT_ID=wb-backend-demo
+++ extract_config_value service_name
+++ local key=service_name
+++ local value
++++ grep '^service_name: str = ' config
++++ sed -E 's/^service_name: str = ['\''"](.*)['\''"].*$/\1/'
+++ value=backend-rest-api
+++ echo backend-rest-api
++ SERVICE_NAME=backend-rest-api
+++ extract_config_value repo_name
+++ local key=repo_name
+++ local value
++++ grep '^repo_name: str = ' config
++++ sed -E 's/^repo_name: str = ['\''"](.*)['\''"].*$/\1/'
+++ value=template-backend
+++ echo template-backend
++ REPO_NAME=template-backend
+++ extract_config_value region
+++ local key=region
+++ local value
++++ grep '^region: str = ' config
++++ sed -E 's/^region: str = ['\''"](.*)['\''"].*$/\1/'
+++ value=us-central1
+++ echo us-central1
++ REGION=us-central1
++ '[' -z wb-backend-demo ']'
++ PROJECT_ID=wb-backend-demo
++ '[' -z staging ']'
++ '[' staging == dev ']'
++ echo
+
++ echo 'PROJECT SETUP'
+PROJECT SETUP
++ echo -------------
+-------------
++ '[' staging == dev ']'
++ '[' staging == staging ']'
+++ echo wb-backend-demo
+++ tr '[:upper:]' '[:lower:]'
++ PROJECT_ID_LOWER=wb-backend-demo
++ PROJECT_NAME=wb-backend-demo-staging
+++ ensure_valid_project_id wb-backend-demo-staging
+++ local project_id=wb-backend-demo-staging
+++ local max_length=30
+++ '[' 23 -gt 30 ']'
+++ echo wb-backend-demo-staging
++ PROJECT_NAME=wb-backend-demo-staging
++ echo 'Bootstrapping project: wb-backend-demo-staging (Environment: staging)'
+Bootstrapping project: wb-backend-demo-staging (Environment: staging)
+++ gcloud config get-value project
++ ACTIVE_PROJECT=wb-backend-demo-staging
++ '[' wb-backend-demo-staging '!=' wb-backend-demo-staging ']'
++ echo '✅ Active gcloud configuration matches target project: wb-backend-demo-staging'
+✅ Active gcloud configuration matches target project: wb-backend-demo-staging
++ echo 'Checking if project wb-backend-demo-staging exists...'
+Checking if project wb-backend-demo-staging exists...
++ gcloud projects describe wb-backend-demo-staging
++ echo '✅ Project wb-backend-demo-staging already exists.'
+✅ Project wb-backend-demo-staging already exists.
++ echo 'Checking permissions...'
+Checking permissions...
++ gcloud projects get-iam-policy wb-backend-demo-staging
++ echo '✅ You have sufficient IAM permissions on this project.'
+✅ You have sufficient IAM permissions on this project.
+++ gcloud config get-value account
+Your active configuration is: [wedge-golf-prod]
++ CURRENT_USER=fddiferd@gmail.com
++ '[' -z fddiferd@gmail.com ']'
+++ gcloud iam roles list --project=wb-backend-demo-staging --filter=name:projects/wb-backend-demo-staging/roles/developer '--format=value(name)'
++ ROLE_EXISTS=projects/wb-backend-demo-staging/roles/developer
++ '[' -z projects/wb-backend-demo-staging/roles/developer ']'
++ echo '✅ Custom developer role already exists.'
+✅ Custom developer role already exists.
+++ gcloud projects get-iam-policy wb-backend-demo-staging --format=json
+++ jq -r '.bindings[] | select(.role == "projects/wb-backend-demo-staging/roles/developer") | .members[] | select(. == "user:fddiferd@gmail.com")'
++ HAS_ROLE=user:fddiferd@gmail.com
++ '[' -z user:fddiferd@gmail.com ']'
++ echo '✅ User already has developer role.'
+✅ User already has developer role.
++ echo 'Checking Artifact Registry access...'
+Checking Artifact Registry access...
++ gcloud artifacts repositories list --project=wb-backend-demo-staging --location=us-central1

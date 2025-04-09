@@ -63,10 +63,11 @@ function print_usage() {
     echo "Usage: $0 <event-type> [options]"
     echo ""
     echo "Event Types:"
-    echo "  dev        - Simulate a push to a development branch"
-    echo "  main       - Simulate a push to the main branch"
+    echo "  dev        - Simulate a push to any development branch"
+    echo "  master     - Simulate a push to the master branch"
     echo "  tag        - Simulate creating a version tag"
     echo "  pr         - Simulate a pull request"
+    echo "  all        - Simulate all event types"
     echo ""
     echo "Options:"
     echo "  --branch   - Branch name for dev event (default: feature/test)"
@@ -74,9 +75,9 @@ function print_usage() {
     echo "  --pr-title - PR title for PR event (default: Test PR)"
     echo ""
     echo "Examples:"
-    echo "  $0 dev --branch=feature/auth"
-    echo "  $0 main"
-    echo "  $0 tag --tag=v2.1.0"
+    echo "  $0 dev --branch=feature/test-feature"
+    echo "  $0 master"
+    echo "  $0 tag --tag=v1.0.0"
     echo "  $0 pr --pr-title=\"Fix documentation\""
 }
 
@@ -188,24 +189,24 @@ case $EVENT_TYPE in
         echo "To see build results: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"
         ;;
     
-    main)
-        print_section "Simulating push to main branch"
+    master)
+        print_section "Simulating push to master branch"
         
         # Look up the staging trigger ID
-        echo "Looking for main branch trigger..."
+        echo "Looking for master branch trigger..."
         TRIGGER_ID=$(gcloud builds triggers list --project=$PROJECT_NAME --filter="description~'staging'" --format="value(id)")
         
         # Simulate the build process by manually triggering Cloud Build
         if [ -n "$TRIGGER_ID" ]; then
             echo "Found trigger ID: $TRIGGER_ID"
-            echo "Manually triggering Cloud Build for main branch..."
-            gcloud builds triggers run $TRIGGER_ID --project=$PROJECT_NAME --branch=main --region=$REGION
+            echo "Manually triggering Cloud Build for master branch..."
+            gcloud builds triggers run $TRIGGER_ID --project=$PROJECT_NAME --branch=master --region=$REGION
         else
-            echo "Note: No main branch trigger found. This may be because triggers are not configured yet."
+            echo "Note: No master branch trigger found. This may be because triggers are not configured yet."
             echo "To create triggers, run bootstrap with SKIP_TERRAFORM=false in your .env file."
         fi
         
-        echo "✅ Main branch event simulated"
+        echo "✅ Master branch event simulated"
         echo "To see build results: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"
         ;;
     
@@ -254,6 +255,18 @@ case $EVENT_TYPE in
         
         echo "Created branch $PR_BRANCH to represent this PR"
         echo "✅ Pull request event simulated (local only)"
+        ;;
+    
+    all)
+        print_section "Simulating all event types"
+        
+        # Simulate all events
+        $0 dev --branch=feature/test
+        $0 master
+        $0 tag --tag=v1.0.0
+        $0 pr --pr-title="Test PR"
+        
+        echo "✅ All events simulated"
         ;;
     
     *)

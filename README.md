@@ -279,11 +279,24 @@ The API provides these endpoints:
 
 ### Automated Deployments
 
-The CI/CD pipeline is automatically configured during bootstrap and works as follows:
+The CI/CD pipeline follows a standard GitOps workflow with three distinct environments:
 
-- **Development**: Deploys when any branch except `main` is pushed
-- **Staging**: Deploys when changes are pushed to the `main` branch
-- **Production**: Deploys when a tag starting with `v` is created (e.g., v1.0.0)
+- **Development**: Deploys when any branch *except* `master` is pushed
+  - Branch Pattern: `^(?!master$).*$` (any branch name that is not exactly "master")
+  - Environment: `dev`
+  - Purpose: Testing during active development
+
+- **Staging**: Deploys *only* when changes are pushed to the `master` branch
+  - Branch Pattern: `^master$` (exactly matches "master")
+  - Environment: `staging`
+  - Purpose: Integration testing, QA, and pre-production validation
+
+- **Production**: Deploys *only* when a tag starting with `v` is created
+  - Tag Pattern: `^v.*$` (any tag starting with "v", like v1.0.0)
+  - Environment: `prod`
+  - Purpose: Live production deployment
+
+This separation ensures proper isolation between environments and maintains the GitOps workflow best practices.
 
 ### Testing CI/CD Events
 
@@ -362,11 +375,11 @@ git add .
 git commit -m "Add new feature"
 git push origin feature/new-feature
 
-# Merge to main when ready
-git checkout main
-git pull origin main
+# Merge to master when ready
+git checkout master
+git pull origin master
 git merge feature/new-feature
-git push origin main
+git push origin master
 ```
 
 ## Features

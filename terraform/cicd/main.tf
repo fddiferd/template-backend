@@ -254,7 +254,7 @@ resource "google_cloudbuild_trigger" "dev_trigger" {
     owner = var.github_owner
     name  = var.github_repo
     push {
-      branch = "^(?!main$).*$"
+      branch = "^(?!master$).*$"
     }
   }
   
@@ -281,18 +281,18 @@ resource "google_cloudbuild_trigger" "dev_trigger" {
   }
 }
 
-# Staging trigger (runs on push to main)
+# Staging trigger (runs on push to master)
 resource "google_cloudbuild_trigger" "staging_trigger" {
   count = (var.environment == "staging" && !var.skip_resource_creation) ? 1 : 0
   
   name        = "${var.project_id}-staging"
-  description = "Build and deploy on push to main branch"
+  description = "Build and deploy on push to master branch"
   
   github {
     owner = var.github_owner
     name  = var.github_repo
     push {
-      branch = "main"
+      branch = "master"
     }
   }
   
