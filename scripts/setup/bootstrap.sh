@@ -303,6 +303,7 @@ USER_EMAIL=$(git config --get user.email)
 
 # Prepare Terraform variables
 echo "Setting up Terraform configuration..."
+echo "Note: terraform.tfvars files are gitignored and will be regenerated on each bootstrap run"
 
 # Create terraform.tfvars file for bootstrap
 mkdir -p terraform/bootstrap

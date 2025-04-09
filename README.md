@@ -22,7 +22,9 @@ This repository contains a FastAPI application with automated infrastructure for
     - `verify_library.sh`: Comprehensive verification
 - `terraform/`: Infrastructure as Code using Terraform
   - `bootstrap/`: Initial GCP project setup
+    - `terraform.tfvars.example`: Example template for bootstrap variables (the actual `.tfvars` files are gitignored)
   - `cicd/`: CI/CD and deployment configuration
+    - `terraform.tfvars.example`: Example template for CICD variables (the actual `.tfvars` files are gitignored)
 - `tests/`: Application tests
   - `test_app_exists.py`: Tests for application code integrity
   - `test_infrastructure.py`: Tests for infrastructure configuration

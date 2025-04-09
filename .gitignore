@@ -32,8 +32,12 @@ ENV/
 *.tfstate
 *.tfstate.backup
 *.tfplan
+*.tfvars
 *.tfvars.json
 .terraform.lock.hcl
+
+# Optional: Add specific templates that should be committed
+!terraform/**/*.tfvars.example
 
 # Firebase service accounts
 service_accounts/*.json
