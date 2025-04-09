@@ -1,2 +1,5 @@
 # set the gcp project id of an existing or new project
-gcp_project_id: str 
+gcp_project_id: str = 'fast-api-app' 
+
+# environments for deployment
+environments: list[str] = ["dev", "staging", "prod"]
