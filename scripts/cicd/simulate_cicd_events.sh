@@ -122,6 +122,25 @@ print_section "CI/CD Event Simulation"
 echo "Project: $PROJECT_NAME"
 echo "Mode: $MODE"
 
+# Check active gcloud configuration
+ACTIVE_PROJECT=$(gcloud config get-value project 2>/dev/null)
+if [ "$ACTIVE_PROJECT" != "$PROJECT_NAME" ]; then
+  echo "⚠️ WARNING: Your active gcloud configuration is using project: $ACTIVE_PROJECT"
+  echo "  But this script will simulate deployments to: $PROJECT_NAME"
+  read -p "  Do you want to switch your gcloud config to $PROJECT_NAME? (y/n) " SWITCH_PROJECT
+  
+  if [[ $SWITCH_PROJECT == "y" || $SWITCH_PROJECT == "Y" ]]; then
+    echo "Switching gcloud configuration to $PROJECT_NAME..."
+    gcloud config set project $PROJECT_NAME
+    echo "✅ Active project switched to $PROJECT_NAME"
+  else
+    echo "Continuing with current configuration. Commands will target $PROJECT_NAME explicitly."
+    echo "Note that any manual gcloud commands you run will still target $ACTIVE_PROJECT unless you specify --project=$PROJECT_NAME"
+  fi
+else
+  echo "✅ Active gcloud configuration matches target project: $PROJECT_NAME"
+fi
+
 # Check if gcloud is available
 if ! command -v gcloud &> /dev/null; then
     echo "Error: gcloud command not found. Please install Google Cloud SDK."

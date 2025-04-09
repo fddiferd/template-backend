@@ -77,6 +77,25 @@ fi
 
 echo "Deploying to project: $PROJECT_NAME (Environment: $MODE)"
 
+# Check active gcloud configuration
+ACTIVE_PROJECT=$(gcloud config get-value project 2>/dev/null)
+if [ "$ACTIVE_PROJECT" != "$PROJECT_NAME" ]; then
+  echo "⚠️ WARNING: Your active gcloud configuration is using project: $ACTIVE_PROJECT"
+  echo "  But this script will deploy to: $PROJECT_NAME"
+  read -p "  Do you want to switch your gcloud config to $PROJECT_NAME? (y/n) " SWITCH_PROJECT
+  
+  if [[ $SWITCH_PROJECT == "y" || $SWITCH_PROJECT == "Y" ]]; then
+    echo "Switching gcloud configuration to $PROJECT_NAME..."
+    gcloud config set project $PROJECT_NAME
+    echo "✅ Active project switched to $PROJECT_NAME"
+  else
+    echo "Continuing with current configuration. Commands will target $PROJECT_NAME explicitly."
+    echo "Note that any manual gcloud commands you run will still target $ACTIVE_PROJECT unless you specify --project=$PROJECT_NAME"
+  fi
+else
+  echo "✅ Active gcloud configuration matches target project: $PROJECT_NAME"
+fi
+
 # Check if project exists
 if ! gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
   echo "❌ Error: Project $PROJECT_NAME does not exist. Run bootstrap.sh first."
@@ -91,6 +110,14 @@ echo
 echo "ARTIFACT REGISTRY SETUP"
 echo "----------------------"
 
+# Check if we have Artifact Registry permissions
+if ! gcloud artifacts repositories list --project="$PROJECT_NAME" --location="$REGION" &> /dev/null; then
+  echo "❌ Error: You don't have Artifact Registry permissions for project $PROJECT_NAME"
+  echo "Please run the bootstrap script again to set up proper permissions:"
+  echo "./scripts/setup/bootstrap.sh"
+  exit 1
+fi
+
 # Set up Artifact Registry repository if it doesn't exist
 REPO_EXISTS=$(gcloud artifacts repositories list --project=$PROJECT_NAME --location=$REGION --filter="name:$REPO_NAME" --format="value(name)")
 if [ -z "$REPO_EXISTS" ]; then
@@ -100,6 +127,14 @@ if [ -z "$REPO_EXISTS" ]; then
     --repository-format=docker \
     --location=$REGION \
     --description="Docker repository for $SERVICE_NAME"
+  
+  if [ $? -ne 0 ]; then
+    echo "❌ Error creating Artifact Registry repository."
+    echo "This may be due to insufficient permissions."
+    echo "Try running the bootstrap script again: ./scripts/setup/bootstrap.sh"
+    exit 1
+  fi
+  
   echo "✅ Artifact Registry repository created"
 else
   echo "✅ Artifact Registry repository already exists"

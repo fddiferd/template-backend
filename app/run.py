@@ -21,7 +21,21 @@ def get_config_value(key, default=None):
 # Get project ID and other configuration
 project_id = get_config_value('gcp_project_id', 'unnamed-project')
 service_name = get_config_value('service_name', 'api')
-api_title = f"{service_name.replace('-', ' ').title()} API"
+
+# Format the service name into a properly capitalized title
+# Replace both hyphens and underscores with spaces
+formatted_name = service_name.replace('-', ' ').replace('_', ' ')
+
+# Capitalize each word
+formatted_name = ' '.join(word.capitalize() for word in formatted_name.split())
+
+# Avoid duplicate "API" in the title
+if service_name.lower().endswith('api'):
+    # If service name already contains "api", just use the formatted name
+    api_title = formatted_name
+else:
+    # Otherwise add "API" suffix
+    api_title = f"{formatted_name} API"
 
 # Configure logging
 logging.basicConfig(
@@ -53,7 +67,7 @@ logger.info(f"Starting API in {environment} environment")
 @app.get("/")
 async def root():
     return {
-        "message": f"Welcome to {api_title}",
+        "message": f"Welcome to {formatted_name}",
         "environment": environment,
         "status": "healthy"
     }

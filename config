@@ -8,7 +8,7 @@ gcp_project_id: str = 'template-backend'
 environments: list[str] = ["dev", "staging", "prod"]
 
 # Service name for the API
-service_name: str = "template-api"
+service_name: str = "backend-rest-api"
 
 # Repository configuration
 repo_name: str = "template-backend"

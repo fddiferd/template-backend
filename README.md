@@ -1,4 +1,4 @@
-# FastAPI Application with GCP Deployment
+# Backend Template - FastAPI Application with GCP Deployment
 
 This repository contains a FastAPI application with automated infrastructure for deployment to Google Cloud Platform using Cloud Run, Artifact Registry, and Firebase integration.
 
@@ -63,7 +63,7 @@ cp .env.example .env
 The `.env` file contains developer-specific settings:
 
 ```
-GCP_BILLING_ACCOUNT_ID=000000-000000-000000  # Your GCP billing account ID
+GCP_BILLING_ACCOUNT_ID=000000-000000  # Your GCP billing account ID
 DEV_SCHEMA_NAME=your-username                # Your unique developer name
 MODE=dev                                     # dev, staging, or prod
 SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
@@ -117,16 +117,51 @@ If you're setting up a new project, you need:
 #### For Team Members Joining an Existing Project
 
 If you're joining an existing project, you need:
-- Artifact Registry Writer
-- Cloud Run Developer
-- Storage Object Admin
-- Cloud Build Editor
+- Basic IAM access to the project (View or Editor role)
 
-### Step 1: Clone the Repository
+The bootstrap script will automatically create and assign a custom "developer" role with all necessary permissions:
+- Artifact Registry management
+- Cloud Run service deployment
+- Storage object access
+- And other permissions needed for development
+
+This eliminates the need to manually assign multiple individual roles.
+
+### Step 1: Set Up Your Repository
+
+You have two options to get started:
+
+#### Option A: Create a New Repository from Scratch
 
 ```bash
-git clone https://github.com/fddiferd/template-backend.git
-cd template-backend
+# 1. Create a new repository on GitHub
+# 2. Clone your empty repository
+git clone https://github.com/your-username/your-project-name.git
+cd your-project-name
+
+# 3. Download the project files (without Git history)
+curl -L https://github.com/fddiferd/fast-api-app/archive/refs/heads/main.zip -o main.zip
+unzip main.zip
+mv fast-api-app-main/* .
+mv fast-api-app-main/.* . 2>/dev/null || true
+rmdir fast-api-app-main
+rm main.zip
+
+# 4. Commit the initial code
+git add .
+git commit -m "Initial commit"
+git push origin main
+```
+
+#### Option B: Fork the Repository
+
+```bash
+# 1. Fork the repository on GitHub by visiting:
+# https://github.com/fddiferd/fast-api-app/fork
+
+# 2. Clone your forked repository
+git clone https://github.com/your-username/fast-api-app.git
+cd fast-api-app
 ```
 
 ### Step 2: Configure Your Environment
@@ -137,7 +172,7 @@ cd template-backend
    cp .env.example .env
    
    # Edit the .env file with your details
-   GCP_BILLING_ACCOUNT_ID=000000-000000-000000  # Your GCP billing account ID
+   GCP_BILLING_ACCOUNT_ID=000000-000000  # Your GCP billing account ID
    DEV_SCHEMA_NAME=your-username                # Your unique developer name
    MODE=dev                                     # dev, staging, or prod
    SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
@@ -333,10 +368,9 @@ This project is fully compatible with macOS. The scripts use portable shell comm
 ### Common Issues
 
 1. **Missing GCP Billing Account ID**:
-   - Ensure your billing account ID is correct in `.env` 
-   - If you're joining an existing project, set `NO_BILLING_REQUIRED=true` in your `.env` file
-   - Verify you have billing admin permissions
-   - Run `gcloud billing accounts list` to see available billing accounts
+   - Only required when creating new projects, not when joining existing ones
+   - If joining an existing project, just make sure you have the correct permissions
+   - Run `gcloud billing accounts list` to see available billing accounts if you need to create a new project
 
 2. **Permission Issues**:
    - Run `gcloud auth login` to authenticate
@@ -358,6 +392,12 @@ This project is fully compatible with macOS. The scripts use portable shell comm
 6. **Project ID Format Issues**:
    - GCP project IDs must be lowercase alphanumeric with optional hyphens
    - Underscores are not allowed in project IDs
+
+7. **Active Project Mismatch**:
+   - The scripts will detect if your active gcloud configuration uses a different project
+   - You'll be given the option to switch your configuration to the target project
+   - If you choose not to switch, all script commands will still work correctly (they use explicit project flags)
+   - But be careful when running manual gcloud commands as they'll use your active configuration
 
 ### Useful Commands
 

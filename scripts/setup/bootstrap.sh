@@ -77,6 +77,25 @@ fi
 
 echo "Bootstrapping project: $PROJECT_NAME (Environment: $MODE)"
 
+# Check active gcloud configuration
+ACTIVE_PROJECT=$(gcloud config get-value project 2>/dev/null)
+if [ "$ACTIVE_PROJECT" != "$PROJECT_NAME" ]; then
+  echo "⚠️ WARNING: Your active gcloud configuration is using project: $ACTIVE_PROJECT"
+  echo "  But this script will deploy to: $PROJECT_NAME"
+  read -p "  Do you want to switch your gcloud config to $PROJECT_NAME? (y/n) " SWITCH_PROJECT
+  
+  if [[ $SWITCH_PROJECT == "y" || $SWITCH_PROJECT == "Y" ]]; then
+    echo "Switching gcloud configuration to $PROJECT_NAME..."
+    gcloud config set project $PROJECT_NAME
+    echo "✅ Active project switched to $PROJECT_NAME"
+  else
+    echo "Continuing with current configuration. Commands will target $PROJECT_NAME explicitly."
+    echo "Note that any manual gcloud commands you run will still target $ACTIVE_PROJECT unless you specify --project=$PROJECT_NAME"
+  fi
+else
+  echo "✅ Active gcloud configuration matches target project: $PROJECT_NAME"
+fi
+
 echo "Checking if project $PROJECT_NAME exists..."
 
 # Check if project exists
@@ -86,7 +105,83 @@ if gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
   # Check permissions
   echo "Checking permissions..."
   if gcloud projects get-iam-policy "$PROJECT_NAME" &> /dev/null; then
-    echo "✅ You have sufficient permissions on this project."
+    echo "✅ You have sufficient IAM permissions on this project."
+    
+    # Get the current user
+    CURRENT_USER=$(gcloud config get-value account)
+    
+    if [ -z "$CURRENT_USER" ]; then
+      echo "❌ Error: Could not determine current user. Please run 'gcloud auth login' first."
+      exit 1
+    fi
+      
+    # Check if custom developer role exists already
+    ROLE_EXISTS=$(gcloud iam roles list --project=$PROJECT_NAME --filter="name:projects/$PROJECT_NAME/roles/developer" --format="value(name)" 2>/dev/null || echo "")
+    
+    if [ -z "$ROLE_EXISTS" ]; then
+      echo "Creating custom developer role..."
+      # Create temporary file for role definition
+      cat > /tmp/developer-role.yaml << EOF
+title: Developer
+description: Custom role for application developers
+stage: GA
+includedPermissions:
+- artifactregistry.repositories.create
+- artifactregistry.repositories.get
+- artifactregistry.repositories.list
+- artifactregistry.repositories.uploadArtifacts
+- artifactregistry.tags.create
+- artifactregistry.tags.get
+- artifactregistry.tags.list
+- artifactregistry.tags.update
+- run.services.create
+- run.services.get
+- run.services.list
+- run.services.update
+- storage.objects.create
+- storage.objects.delete
+- storage.objects.get
+- storage.objects.list
+- storage.objects.update
+EOF
+      
+      # Create custom role
+      gcloud iam roles create developer --project=$PROJECT_NAME --file=/tmp/developer-role.yaml
+      rm /tmp/developer-role.yaml
+      echo "✅ Custom developer role created."
+    else
+      echo "✅ Custom developer role already exists."
+    fi
+    
+    # Check if user has the developer role
+    HAS_ROLE=$(gcloud projects get-iam-policy $PROJECT_NAME --format=json | \
+      jq -r ".bindings[] | select(.role == \"projects/$PROJECT_NAME/roles/developer\") | .members[] | select(. == \"user:$CURRENT_USER\")" 2>/dev/null || echo "")
+    
+    if [ -z "$HAS_ROLE" ]; then
+      echo "Granting developer role to $CURRENT_USER..."
+      gcloud projects add-iam-policy-binding $PROJECT_NAME \
+        --member="user:$CURRENT_USER" \
+        --role="projects/$PROJECT_NAME/roles/developer"
+      echo "✅ Developer role assigned."
+    else
+      echo "✅ User already has developer role."
+    fi
+    
+    # Check Artifact Registry permissions specifically
+    echo "Checking Artifact Registry access..."
+    if gcloud artifacts repositories list --project="$PROJECT_NAME" --location="$REGION" &> /dev/null; then
+      echo "✅ You have Artifact Registry permissions."
+    else
+      echo "⚠️ You need additional Artifact Registry permissions. Adding them now..."
+      
+      # Grant Artifact Registry permissions directly in case the custom role isn't sufficient
+      echo "Granting Artifact Registry Writer role to $CURRENT_USER..."
+      gcloud projects add-iam-policy-binding "$PROJECT_NAME" \
+        --member="user:$CURRENT_USER" \
+        --role="roles/artifactregistry.writer"
+      
+      echo "✅ Required permissions added."
+    fi
   else
     echo "❌ Error: You don't have sufficient permissions on this project."
     exit 1
@@ -111,6 +206,54 @@ else
     
     echo "Linking billing account to project..."
     gcloud billing projects link "$PROJECT_NAME" --billing-account="$GCP_BILLING_ACCOUNT_ID"
+    
+    # Get the current user
+    CURRENT_USER=$(gcloud config get-value account)
+    
+    # First grant basic editor permissions needed for next steps
+    echo "Granting basic editor permissions to $CURRENT_USER..."
+    gcloud projects add-iam-policy-binding "$PROJECT_NAME" \
+      --member="user:$CURRENT_USER" \
+      --role="roles/editor"
+    
+    # Create custom developer role
+    echo "Creating custom developer role..."
+    # Create temporary file for role definition
+    cat > /tmp/developer-role.yaml << EOF
+title: Developer
+description: Custom role for application developers
+stage: GA
+includedPermissions:
+- artifactregistry.repositories.create
+- artifactregistry.repositories.get
+- artifactregistry.repositories.list
+- artifactregistry.repositories.uploadArtifacts
+- artifactregistry.tags.create
+- artifactregistry.tags.get
+- artifactregistry.tags.list
+- artifactregistry.tags.update
+- run.services.create
+- run.services.get
+- run.services.list
+- run.services.update
+- storage.objects.create
+- storage.objects.delete
+- storage.objects.get
+- storage.objects.list
+- storage.objects.update
+EOF
+
+    # Create custom role
+    gcloud iam roles create developer --project=$PROJECT_NAME --file=/tmp/developer-role.yaml
+    rm /tmp/developer-role.yaml
+    
+    # Assign developer role to current user
+    echo "Granting developer role to $CURRENT_USER..."
+    gcloud projects add-iam-policy-binding $PROJECT_NAME \
+      --member="user:$CURRENT_USER" \
+      --role="projects/$PROJECT_NAME/roles/developer"
+    
+    echo "✅ Custom developer role created and assigned."
   else
     echo "❌ Error: Could not access billing account $GCP_BILLING_ACCOUNT_ID"
     echo "This could be due to:"
