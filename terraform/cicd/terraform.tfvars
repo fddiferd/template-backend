@@ -1,5 +1,5 @@
 environment = "dev"
-project_id = "fast-api-app-fddiferd"
+project_id = "fast-api-app-dev-fddiferd"
 github_owner = "fddiferd"
 github_repo = "fast-api-app"
 user_email = "fddiferd@gmail.com"

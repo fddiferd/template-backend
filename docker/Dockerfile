@@ -22,4 +22,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # Run the application with uvicorn
-CMD exec uvicorn app.run:app --host ${HOST} --port ${PORT}
+CMD ["uvicorn", "app.run:app", "--host", "0.0.0.0", "--port", "8080"]

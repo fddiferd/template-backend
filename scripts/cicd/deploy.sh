@@ -62,11 +62,16 @@ echo "---------------------"
 
 # Project naming based on mode
 if [ "$MODE" == "dev" ]; then
-  PROJECT_NAME="${PROJECT_ID,,}-dev_${DEV_SCHEMA_NAME,,}"
+  # Convert to lowercase using tr (macOS compatible)
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  DEV_SCHEMA_LOWER=$(echo "$DEV_SCHEMA_NAME" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-dev-${DEV_SCHEMA_LOWER}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${PROJECT_ID,,}-staging"
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${PROJECT_ID,,}-prod"
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-prod"
 else
   echo "❌ Error: Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1

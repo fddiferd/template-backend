@@ -1,0 +1,3 @@
+#!/bin/bash
+# Simple wrapper to run the CI/CD simulation script
+./scripts/cicd/simulate_cicd_events.sh "$@" 

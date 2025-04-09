@@ -39,11 +39,16 @@ if [ "$MODE" == "dev" ]; then
     echo "DEV_SCHEMA_NAME not set in .env, required for dev mode"
     exit 1
   fi
-  PROJECT_NAME="${PROJECT_ID,,}-dev_${DEV_SCHEMA_NAME,,}"
+  # Convert to lowercase using tr (macOS compatible)
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  DEV_SCHEMA_LOWER=$(echo "$DEV_SCHEMA_NAME" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-dev-${DEV_SCHEMA_LOWER}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${PROJECT_ID,,}-staging"
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${PROJECT_ID,,}-prod"
+  PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
+  PROJECT_NAME="${PROJECT_ID_LOWER}-prod"
 else
   echo "Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1
@@ -148,10 +153,19 @@ case $EVENT_TYPE in
             echo "Created branch $BRANCH_NAME"
         fi
         
+        # Look up the dev trigger ID
+        echo "Looking for development trigger..."
+        TRIGGER_ID=$(gcloud builds triggers list --project=$PROJECT_NAME --filter="description~'dev'" --format="value(id)")
+        
         # Simulate the build process by manually triggering Cloud Build
-        echo "Manually triggering Cloud Build for $BRANCH_NAME..."
-        gcloud builds triggers run --branch=$BRANCH_NAME --project=$PROJECT_NAME || \
-            echo "Note: Trigger failed. This may be because the branch doesn't exist remotely or trigger is not configured."
+        if [ -n "$TRIGGER_ID" ]; then
+            echo "Found trigger ID: $TRIGGER_ID"
+            echo "Manually triggering Cloud Build for $BRANCH_NAME..."
+            gcloud builds triggers run $TRIGGER_ID --project=$PROJECT_NAME --branch=$BRANCH_NAME --region=$REGION
+        else
+            echo "Note: No dev trigger found. This may be because triggers are not configured yet."
+            echo "To create triggers, run bootstrap with SKIP_TERRAFORM=false in your .env file."
+        fi
         
         echo "✅ Development branch event simulated"
         echo "To see build results: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"
@@ -160,10 +174,19 @@ case $EVENT_TYPE in
     main)
         print_section "Simulating push to main branch"
         
+        # Look up the staging trigger ID
+        echo "Looking for main branch trigger..."
+        TRIGGER_ID=$(gcloud builds triggers list --project=$PROJECT_NAME --filter="description~'staging'" --format="value(id)")
+        
         # Simulate the build process by manually triggering Cloud Build
-        echo "Manually triggering Cloud Build for main branch..."
-        gcloud builds triggers run --branch=main --project=$PROJECT_NAME || \
-            echo "Note: Trigger failed. This may be because main doesn't exist remotely or trigger is not configured."
+        if [ -n "$TRIGGER_ID" ]; then
+            echo "Found trigger ID: $TRIGGER_ID"
+            echo "Manually triggering Cloud Build for main branch..."
+            gcloud builds triggers run $TRIGGER_ID --project=$PROJECT_NAME --branch=main --region=$REGION
+        else
+            echo "Note: No main branch trigger found. This may be because triggers are not configured yet."
+            echo "To create triggers, run bootstrap with SKIP_TERRAFORM=false in your .env file."
+        fi
         
         echo "✅ Main branch event simulated"
         echo "To see build results: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"
@@ -181,10 +204,19 @@ case $EVENT_TYPE in
             echo "Created tag $TAG_NAME"
         fi
         
+        # Look up the prod trigger ID
+        echo "Looking for tag trigger..."
+        TRIGGER_ID=$(gcloud builds triggers list --project=$PROJECT_NAME --filter="description~'prod'" --format="value(id)")
+        
         # Simulate the build process by manually triggering Cloud Build
-        echo "Manually triggering Cloud Build for tag $TAG_NAME..."
-        gcloud builds triggers run --tag=$TAG_NAME --project=$PROJECT_NAME || \
-            echo "Note: Trigger failed. This may be because the tag doesn't exist remotely or trigger is not configured."
+        if [ -n "$TRIGGER_ID" ]; then
+            echo "Found trigger ID: $TRIGGER_ID"
+            echo "Manually triggering Cloud Build for tag $TAG_NAME..."
+            gcloud builds triggers run $TRIGGER_ID --project=$PROJECT_NAME --tag=$TAG_NAME --region=$REGION
+        else
+            echo "Note: No tag trigger found. This may be because triggers are not configured yet."
+            echo "To create triggers, run bootstrap with SKIP_TERRAFORM=false in your .env file."
+        fi
         
         echo "✅ Tag event simulated"
         echo "To see build results: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"

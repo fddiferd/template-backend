@@ -27,6 +27,10 @@ This repository contains a FastAPI application with automated infrastructure for
   - `test_app_exists.py`: Tests for application code integrity
   - `test_infrastructure.py`: Tests for infrastructure configuration
   - `test_cicd.py`: Tests for CI/CD pipeline configuration
+- Shortcut Scripts:
+  - `bootstrap`: Wrapper script for ./scripts/setup/bootstrap.sh
+  - `deploy`: Wrapper script for ./scripts/cicd/deploy.sh
+  - `simulate`: Wrapper script for ./scripts/cicd/simulate_cicd_events.sh
 - Configuration:
   - `.env`: Developer-specific environment variables
   - `pyproject.toml`: Python project definition and dependencies
@@ -55,6 +59,7 @@ The `.env` file contains developer-specific settings:
 GCP_BILLING_ACCOUNT_ID=your-billing-account-id
 DEV_SCHEMA_NAME=your-username
 MODE=dev  # dev, staging, or prod
+SKIP_TERRAFORM=true  # Skip Terraform deployment (optional)
 ```
 
 ## Getting Started
@@ -71,7 +76,7 @@ Before starting, ensure you have the following:
    gcloud init
    ```
 
-2. Terraform installed
+2. Terraform installed (optional - only if you want to use Terraform)
    ```
    # On macOS with Homebrew
    brew install terraform
@@ -105,6 +110,7 @@ cd fast-api-app
    GCP_BILLING_ACCOUNT_ID=000000-000000-000000  # Your GCP billing account ID
    DEV_SCHEMA_NAME=your-username                # Your unique developer name
    MODE=dev                                     # dev, staging, or prod
+   SKIP_TERRAFORM=true                          # Optional: Skip Terraform deployment
    ```
 
 2. Update the `config` file if needed (usually only for changing project defaults):
@@ -136,6 +142,8 @@ Run the verification script to ensure everything is properly set up:
 
 ```bash
 ./scripts/test/verify_library.sh
+# or using the setup script
+./setup.sh
 ```
 
 This will check that all necessary files exist and run tests to verify the application works properly.
@@ -145,31 +153,37 @@ This will check that all necessary files exist and run tests to verify the appli
 The bootstrap script creates a new GCP project with all the necessary services enabled:
 
 ```bash
-# Bootstrap the environment specified in your .env file (MODE=dev|staging|prod)
-
-./scripts/setup/bootstrap.sh
+# Using the wrapper script
+./bootstrap
 ```
+reference to ```./scripts/setup/bootstrap.sh```
 
 This will:
-1. Create a GCP project with pattern `<project_id>-DEV_<dev_schema_name>` for dev, or `<project_id>-<environment>` for staging/prod
+1. Create a GCP project with pattern `<project_id>-dev-<dev_schema_name>` for dev, or `<project_id>-<environment>` for staging/prod
 2. Enable required GCP APIs
-3. Set up Firebase integration
+3. Set up Firebase integration (if Terraform is enabled)
 4. Configure Artifact Registry
-5. Set up IAM permissions
-6. Configure Cloud Build triggers
+5. Set up IAM permissions (if Terraform is enabled)
+6. Configure Cloud Build triggers (if Terraform is enabled)
 
 ### Step 6: Deploy the Application
 
-After bootstrapping, you can deploy the application manually:
+After bootstrapping, you can deploy the application:
 
 ```bash
-./scripts/cicd/deploy.sh
+# Using the wrapper script
+./deploy
+
+# With a specific tag
+./deploy --tag=v1.0.0
 ```
+reference to ```./scripts/cicd/deploy.sh```
 
 This will:
-1. Build a Docker image
-2. Push the image to Artifact Registry
-3. Deploy the application to Cloud Run
+1. Create the Artifact Registry repository if it doesn't exist
+2. Build a Docker image compatible with Cloud Run (linux/amd64)
+3. Push the image to Artifact Registry
+4. Deploy the application to Cloud Run
 
 ## CI/CD Pipeline
 
@@ -184,17 +198,16 @@ The CI/CD pipeline is automatically configured during bootstrap and works as fol
 You can use the included simulation tool to test CI/CD events without actually pushing changes:
 
 ```bash
-# Simulate a push to a development branch
+# Using the wrapper script
+./simulate dev --branch=feature/my-feature
+
+# Or the full path
 ./scripts/cicd/simulate_cicd_events.sh dev --branch=feature/my-feature
 
-# Simulate a push to the main branch
-./scripts/cicd/simulate_cicd_events.sh main
-
-# Simulate creating a version tag
-./scripts/cicd/simulate_cicd_events.sh tag --tag=v1.2.3
-
-# Simulate a pull request
-./scripts/cicd/simulate_cicd_events.sh pr --pr-title="Add new feature"
+# Other examples
+./simulate main
+./simulate tag --tag=v1.2.3
+./simulate pr --pr-title="Add new feature"
 ```
 
 This tool creates the necessary Git objects locally and attempts to trigger the corresponding Cloud Build triggers, giving you feedback on whether the triggers are configured correctly.
@@ -261,13 +274,25 @@ These tests verify that:
 
 1. Build the Docker image:
    ```bash
+   # For local development (native architecture)
    docker build -t fast-api:local -f docker/Dockerfile .
+   
+   # For Cloud Run compatibility
+   docker build --platform linux/amd64 -t fast-api:local -f docker/Dockerfile .
    ```
 
 2. Run the Docker container:
    ```bash
    docker run -p 8000:8000 fast-api:local
    ```
+
+## macOS Compatibility
+
+This project is fully compatible with macOS. The scripts use portable shell commands that work across Linux, macOS, and other Unix-like systems:
+
+1. Uses `tr` instead of Bash-specific lowercase syntax for project IDs
+2. Uses a portable `sed` command for config file parsing
+3. Provides correct Docker platform targeting for M1/M2 Macs
 
 ## Troubleshooting
 
@@ -276,6 +301,7 @@ These tests verify that:
 1. **Missing GCP Billing Account ID**:
    - Ensure your billing account ID is correct in `.env`
    - Verify you have billing admin permissions
+   - Run `gcloud billing accounts list` to see available billing accounts
 
 2. **Permission Issues**:
    - Run `gcloud auth login` to authenticate
@@ -287,7 +313,15 @@ These tests verify that:
 4. **CI/CD Triggers Not Working**:
    - Verify the triggers are properly configured in GCP console
    - Check that the branch patterns match your Git workflow
-   - Use `./scripts/cicd/simulate_cicd_events.sh` to test trigger configuration
+   - Use `./simulate` to test trigger configuration
+
+5. **Docker Build Issues on M1/M2 Macs**:
+   - Make sure to use `--platform linux/amd64` when building for Cloud Run
+   - Docker Desktop must be running with Rosetta 2 emulation enabled
+
+6. **Project ID Format Issues**:
+   - GCP project IDs must be lowercase alphanumeric with optional hyphens
+   - Underscores are not allowed in project IDs
 
 ### Useful Commands
 
@@ -314,6 +348,11 @@ These tests verify that:
 - View recent Cloud Build history:
   ```
   gcloud builds list --project=<PROJECT_ID>
+  ```
+
+- View Artifact Registry repositories:
+  ```
+  gcloud artifacts repositories list --project=<PROJECT_ID> --location=<REGION>
   ```
 
 ## License
