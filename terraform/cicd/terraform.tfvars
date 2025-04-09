@@ -1,8 +1,0 @@
-environment = "prod"
-project_id = "template-backend-prod"
-github_owner = "fddiferd"
-github_repo = "template-backend"
-user_email = "fddiferd@gmail.com"
-region = "us-central1"
-service_name = "backend-rest-api"
-repo_name = "template-backend"
