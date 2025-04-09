@@ -27,6 +27,41 @@ extract_config_value() {
     echo "$value"
 }
 
+# Function to ensure project ID doesn't exceed GCP's 30-character limit
+ensure_valid_project_id() {
+    local project_id=$1
+    local max_length=30
+    
+    # Check if project ID exceeds max length
+    if [ ${#project_id} -gt $max_length ]; then
+        echo "⚠️ Warning: Project ID '$project_id' exceeds $max_length characters"
+        # Truncate to max_length, preserving important parts
+        local truncated
+        if [[ "$project_id" == *"-dev-"* ]]; then
+            # For dev projects: Keep "-dev-username" suffix, truncate the base
+            local username=$(echo "$project_id" | sed 's/.*-dev-\(.*\)/\1/')
+            local base=$(echo "$project_id" | sed 's/\(.*\)-dev-.*/\1/')
+            local remaining=$((max_length - ${#username} - 5)) # 5 for "-dev-"
+            
+            if [ $remaining -lt 5 ]; then
+                # Username too long, must truncate both
+                truncated="${base:0:10}-dev-${username:0:14}"
+            else
+                # Truncate only the base
+                truncated="${base:0:$remaining}-dev-$username"
+            fi
+        else
+            # For staging/prod, just truncate
+            truncated="${project_id:0:$max_length}"
+        fi
+        
+        echo "Project ID truncated to: $truncated"
+        echo "$truncated"
+    else
+        echo "$project_id"
+    fi
+}
+
 GCP_PROJECT_ID=$(extract_config_value "gcp_project_id")
 SERVICE_NAME=$(extract_config_value "service_name")
 REPO_NAME=$(extract_config_value "repo_name")
@@ -64,12 +99,18 @@ if [ "$MODE" == "dev" ]; then
   PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
   DEV_SCHEMA_LOWER=$(echo "$DEV_SCHEMA_NAME" | tr '[:upper:]' '[:lower:]')
   PROJECT_NAME="${PROJECT_ID_LOWER}-dev-${DEV_SCHEMA_LOWER}"
+  # Ensure valid project ID (within 30 characters)
+  PROJECT_NAME=$(ensure_valid_project_id "$PROJECT_NAME")
 elif [ "$MODE" == "staging" ]; then
   PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
   PROJECT_NAME="${PROJECT_ID_LOWER}-staging"
+  # Ensure valid project ID (within 30 characters)
+  PROJECT_NAME=$(ensure_valid_project_id "$PROJECT_NAME")
 elif [ "$MODE" == "prod" ]; then
   PROJECT_ID_LOWER=$(echo "$PROJECT_ID" | tr '[:upper:]' '[:lower:]')
   PROJECT_NAME="${PROJECT_ID_LOWER}-prod"
+  # Ensure valid project ID (within 30 characters)
+  PROJECT_NAME=$(ensure_valid_project_id "$PROJECT_NAME")
 else
   echo "❌ Error: Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1
@@ -464,7 +505,9 @@ else
   fi
 
   # GITHUB CONNECTION FOR CI/CD
-  echo "--------------------------"
+  echo "===================================================================="
+  echo "GITHUB CONNECTION FOR CI/CD"
+  echo "===================================================================="
 
   # Check if GitHub is already connected
   GITHUB_CONNECTED=false
@@ -484,12 +527,30 @@ else
       echo "Add GITHUB_ALREADY_CONNECTED=true to your .env file to skip detection in the future"
     else
       echo "⚠️ GitHub connection not detected. You need to connect GitHub to Cloud Build."
-      echo "Steps:"
-      echo "1. Go to: https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME"
-      echo "2. Select your GitHub repository: $GITHUB_OWNER/$REPO_NAME"
-      echo "3. Install the Cloud Build GitHub app if needed"
-      echo
-      echo "Would you like to open the GitHub connection page now? (y/n)"
+      echo ""
+      echo "===== STEP-BY-STEP GITHUB CONNECTION GUIDE ====="
+      echo ""
+      echo "1. Connect your GitHub account to Cloud Build:"
+      echo "   a. Visit: https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME"
+      echo "   b. Choose 'GitHub (Cloud Build GitHub App)' and click 'Continue'"
+      echo "   c. Authenticate with your GitHub account if prompted"
+      echo ""
+      echo "2. Install/Configure Cloud Build App in GitHub:"
+      echo "   a. You'll be redirected to GitHub to install the Google Cloud Build app"
+      echo "   b. Select either 'All repositories' or choose specific repositories"
+      echo "   c. Make sure '$GITHUB_OWNER/$REPO_NAME' is selected"
+      echo "   d. Click 'Install' (or 'Configure' if the app is already installed)"
+      echo ""
+      echo "3. Complete the connection in GCP Console:"
+      echo "   a. You'll be redirected back to the GCP Console"
+      echo "   b. Select your repository '$REPO_NAME' from the list"
+      echo "   c. Click 'Connect' to finalize the connection"
+      echo ""
+      echo "4. After connecting, DO NOT create a trigger yet!"
+      echo "   a. Return to this terminal window"
+      echo "   b. Confirm the connection is complete so this script can continue"
+      echo ""
+      echo "Would you like to open the Cloud Build GitHub connection page now? (y/n)"
       read -r OPEN_GITHUB
       if [[ "$OPEN_GITHUB" == "y" || "$OPEN_GITHUB" == "Y" ]]; then
         # Try to open URL using appropriate command based on OS
@@ -502,7 +563,7 @@ else
         fi
         
         echo ""
-        echo "Please confirm when you've completed the GitHub connection setup (y/n):"
+        echo "Please confirm when you've completed all the GitHub connection steps (y/n):"
         read -r GITHUB_SETUP_DONE
         if [[ "$GITHUB_SETUP_DONE" == "y" || "$GITHUB_SETUP_DONE" == "Y" ]]; then
           GITHUB_CONNECTED=true
@@ -533,34 +594,92 @@ else
     TRIGGER_EXISTS=$(gcloud builds triggers list --project="$PROJECT_NAME" --filter="name=dev-branch-trigger" --format="value(name)" 2>/dev/null || echo "")
     
     if [[ -z "$TRIGGER_EXISTS" ]]; then
-      echo "Creating Cloud Build trigger for development branches..."
+      echo ""
+      echo "===== CREATING CLOUD BUILD TRIGGER ====="
+      echo "Attempting to create Cloud Build trigger automatically..."
+      
       # Create the trigger using gcloud
       gcloud builds triggers create github \
         --name="dev-branch-trigger" \
         --description="Build and deploy on any branch except main" \
         --repo-owner="$GITHUB_OWNER" \
         --repo-name="$REPO_NAME" \
-        --branch-pattern="^(?!main$).*$" \
+        --branch-pattern=".*" \
         --build-config="cloudbuild.yaml" \
         --included-files="app/**,docker/**,config,cloudbuild.yaml,pyproject.toml" \
         --substitutions="_SERVICE_NAME=$SERVICE_NAME,_REPO_NAME=$REPO_NAME,_REGION=$REGION" \
         --project="$PROJECT_NAME" || {
-          echo "⚠️ Error creating Cloud Build trigger. This might be due to:"
-          echo "1. The GitHub repository isn't properly connected to Cloud Build"
-          echo "2. You don't have sufficient permissions"
-          echo "3. The GitHub connection is still being set up"
+          TRIGGER_ERROR=$?
           echo ""
-          echo "You can try to create the trigger manually in the Cloud Console:"
-          echo "https://console.cloud.google.com/cloud-build/triggers/create?project=$PROJECT_NAME"
+          echo "⚠️ Automatic trigger creation failed with exit code $TRIGGER_ERROR."
+          if [ $TRIGGER_ERROR -eq 1 ]; then
+            echo "This might be due to one of these common issues:"
+            echo "  - GitHub repository not found or not properly connected"
+            echo "  - Invalid branch pattern"
+            echo "  - Missing permissions or authentication issues"
+          fi
+          echo ""
+          echo "⚠️ You need to create the trigger manually."
+          echo ""
+          echo "===== STEP-BY-STEP MANUAL TRIGGER CREATION GUIDE ====="
+          echo ""
+          echo "1. Open the Cloud Build Triggers page:"
+          echo "   https://console.cloud.google.com/cloud-build/triggers/add;region=$REGION?project=$PROJECT_NAME"
+          echo ""
+          echo "2. Create a new trigger with these settings:"
+          echo "   a. Name: dev-branch-trigger"
+          echo "   b. Description: Build and deploy on any branch except main"
+          echo "   c. Event: Push to a branch"
+          echo "   d. Source: First Generation (if prompted)"
+          echo "   e. Repository: $GITHUB_OWNER/$REPO_NAME (select from dropdown)"
+          echo "   f. Branch: Use '.*' for the branch pattern (to match all branches, then manually exclude main after trigger creation)"
+          echo "      NOTE: You'll need to edit the trigger after creation to exclude 'main' branch"
+          echo ""
+          echo "3. Configuration settings:"
+          echo "   a. Type: Cloud Build configuration file (yaml or json)"
+          echo "   b. Location: Repository"
+          echo "   c. Cloud Build configuration file location: cloudbuild.yaml"
+          echo ""
+          echo "4. Add the following substitution variables:"
+          echo "   _SERVICE_NAME: $SERVICE_NAME"
+          echo "   _REPO_NAME: $REPO_NAME"
+          echo "   _REGION: $REGION"
+          echo ""
+          echo "5. Click 'Create' to save the trigger"
+          echo ""
+          echo "6. Test the trigger by pushing a change to any branch except main"
+          echo ""
+          echo "Would you like to open the trigger creation page now? (y/n)"
+          read -r OPEN_TRIGGER_PAGE
+          if [[ "$OPEN_TRIGGER_PAGE" == "y" || "$OPEN_TRIGGER_PAGE" == "Y" ]]; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+              open "https://console.cloud.google.com/cloud-build/triggers/add;region=$REGION?project=$PROJECT_NAME"
+            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+              xdg-open "https://console.cloud.google.com/cloud-build/triggers/add;region=$REGION?project=$PROJECT_NAME" &>/dev/null
+            else
+              echo "Please manually visit: https://console.cloud.google.com/cloud-build/triggers/add;region=$REGION?project=$PROJECT_NAME"
+            fi
+          fi
         }
     else
       echo "✅ Cloud Build trigger 'dev-branch-trigger' already exists"
     fi
     
+    echo ""
+    echo "===== VERIFYING CI/CD SETUP ====="
     echo "✅ CICD setup completed"
+    echo ""
+    echo "To test your CI/CD pipeline:"
+    echo "1. Create a new branch: git checkout -b feature/test-cicd"
+    echo "2. Make a small change: echo '# Test CI/CD' >> README.md"
+    echo "3. Commit and push: git add README.md && git commit -m 'Test CI/CD' && git push origin feature/test-cicd"
+    echo "4. Check build status: https://console.cloud.google.com/cloud-build/builds?project=$PROJECT_NAME"
+    echo ""
   else
+    echo ""
     echo "⚠️ GitHub connection is required for CI/CD."
-    echo "Please connect GitHub to Cloud Build and then run this script again to set up CI/CD."
+    echo "Please follow the steps above to connect GitHub to Cloud Build and then run this script again."
+    echo ""
   fi
 fi
 

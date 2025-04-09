@@ -422,6 +422,7 @@ This project is fully compatible with macOS. The scripts use portable shell comm
 8. **Project ID Format Issues**:
    - GCP project IDs must be lowercase alphanumeric with optional hyphens
    - Underscores are not allowed in project IDs
+   - Project IDs must be between 6 and 30 characters - longer IDs will be automatically truncated
 
 9. **Active Project Mismatch**:
    - The scripts will detect if your active gcloud configuration uses a different project

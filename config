@@ -2,7 +2,7 @@
 
 
 # Base project ID for GCP projects
-gcp_project_id: str = 'template-backend'
+gcp_project_id: str = 'wb-backend-demo'
 
 # Environments for deployment
 environments: list[str] = ["dev", "staging", "prod"]
