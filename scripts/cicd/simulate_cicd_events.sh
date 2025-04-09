@@ -28,10 +28,8 @@ if [ -z "$GCP_PROJECT_ID" ]; then
   exit 1
 fi
 
-# Use PROJECT_ID from .env if specified, otherwise use from config
-if [ -z "$PROJECT_ID" ]; then
-  PROJECT_ID="$GCP_PROJECT_ID"
-fi
+# Always use the PROJECT_ID from config
+PROJECT_ID="$GCP_PROJECT_ID"
 
 # Set project name based on mode
 if [ "$MODE" == "dev" ]; then

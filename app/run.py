@@ -5,22 +5,23 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
-# Read project_id from config file
-def get_project_id():
+# Read values from config file
+def get_config_value(key, default=None):
     try:
         with open('config', 'r') as config_file:
             for line in config_file:
-                if line.startswith('gcp_project_id'):
-                    match = re.search(r"'([^']+)'", line)
+                if line.startswith(f'{key}:'):
+                    match = re.search(r"['\"](.*)['\"]", line)
                     if match:
                         return match.group(1)
     except Exception as e:
         logging.error(f"Error reading config file: {e}")
-    return "fast-api-app"  # Default value if config can't be read
+    return default
 
-# Get project ID
-project_id = get_project_id()
-api_title = f"{project_id.replace('-', ' ').title()} API"
+# Get project ID and other configuration
+project_id = get_config_value('gcp_project_id', 'unnamed-project')
+service_name = get_config_value('service_name', 'api')
+api_title = f"{service_name.replace('-', ' ').title()} API"
 
 # Configure logging
 logging.basicConfig(

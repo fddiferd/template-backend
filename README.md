@@ -122,13 +122,11 @@ If you're joining an existing project, you need:
 - Storage Object Admin
 - Cloud Build Editor
 
-Team members joining an existing project don't need to provide a billing account ID. Set `NO_BILLING_REQUIRED=true` in your `.env` file to skip the billing account check.
-
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/fast-api-app.git
-cd fast-api-app
+git clone https://github.com/fddiferd/template-backend.git
+cd template-backend
 ```
 
 ### Step 2: Configure Your Environment
@@ -143,7 +141,6 @@ cd fast-api-app
    DEV_SCHEMA_NAME=your-username                # Your unique developer name
    MODE=dev                                     # dev, staging, or prod
    SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
-   NO_BILLING_REQUIRED=true                     # For team members joining existing projects
    ```
 
 2. Update the `config` file if needed (usually only for changing project defaults):

@@ -38,18 +38,8 @@ if [ -z "$GCP_PROJECT_ID" ]; then
   exit 1
 fi
 
-# Use PROJECT_ID from .env if specified, otherwise use from config
-if [ -z "$PROJECT_ID" ]; then
-  PROJECT_ID="$GCP_PROJECT_ID"
-fi
-
-# Only check for billing account ID if NO_BILLING_REQUIRED is not set to true
-if [ "${NO_BILLING_REQUIRED:-false}" != "true" ] && [ -z "$GCP_BILLING_ACCOUNT_ID" ]; then
-  echo "❌ Error: GCP_BILLING_ACCOUNT_ID is not set in .env"
-  echo "  If you're joining an existing project and don't need to create a new project,"
-  echo "  set NO_BILLING_REQUIRED=true in your .env file."
-  exit 1
-fi
+# Always use the PROJECT_ID from config
+PROJECT_ID="$GCP_PROJECT_ID"
 
 if [ -z "$MODE" ]; then
   echo "⚠️ MODE not set in .env, defaulting to dev"
@@ -102,16 +92,17 @@ if gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
     exit 1
   fi
 else
-  # Skip project creation if NO_BILLING_REQUIRED is true
-  if [ "${NO_BILLING_REQUIRED:-false}" == "true" ]; then
-    echo "❌ Error: Project $PROJECT_NAME doesn't exist and NO_BILLING_REQUIRED is set."
-    echo "  You need to either:"
-    echo "  1. Set NO_BILLING_REQUIRED=false and provide GCP_BILLING_ACCOUNT_ID to create a new project"
-    echo "  2. Verify the correct project ID format for an existing project"
+  echo "Project doesn't exist. A new project needs to be created."
+  
+  # Now check for billing account only if we need to create a new project
+  if [ -z "$GCP_BILLING_ACCOUNT_ID" ]; then
+    echo "❌ Error: GCP_BILLING_ACCOUNT_ID is not set in .env"
+    echo "  This is required to create a new project."
+    echo "  If you're joining an existing project, make sure the project ID is correct."
     exit 1
   fi
   
-  echo "Project doesn't exist. Checking billing account..."
+  echo "Checking billing account..."
   
   # Check if billing account exists and we have access to it
   if gcloud billing accounts list --filter="ACCOUNT_ID:$GCP_BILLING_ACCOUNT_ID" --format="value(ACCOUNT_ID)" | grep -q "$GCP_BILLING_ACCOUNT_ID"; then
@@ -160,8 +151,11 @@ echo "TERRAFORM CONFIGURATION"
 echo "-----------------------"
 
 # Get GitHub repository information for Terraform
-REPO_OWNER=$(git config --get remote.origin.url | sed -e 's/.*github.com[:/]\([^/]*\).*/\1/')
-REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
+echo "Setting up Terraform configuration..."
+
+# Instead of using git commands, use the config values
+GITHUB_OWNER=$(extract_config_value "github_owner")
+REPO_NAME=$(extract_config_value "repo_name")
 USER_EMAIL=$(git config --get user.email)
 
 # Prepare Terraform variables
@@ -186,7 +180,7 @@ mkdir -p terraform/cicd
 cat > terraform/cicd/terraform.tfvars << EOF
 environment = "$MODE"
 project_id = "$PROJECT_NAME"
-github_owner = "$REPO_OWNER"
+github_owner = "$GITHUB_OWNER"
 github_repo = "$REPO_NAME"
 user_email = "$USER_EMAIL"
 region = "$REGION"

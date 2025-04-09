@@ -2,16 +2,17 @@
 
 
 # Base project ID for GCP projects
-gcp_project_id: str = 'fast-api-app'
+gcp_project_id: str = 'template-backend'
 
 # Environments for deployment
 environments: list[str] = ["dev", "staging", "prod"]
 
 # Service name for the API
-service_name: str = "fast-api"
+service_name: str = "template-api"
 
-# Repository name for Artifact Registry
-repo_name: str = "fast-api"
+# Repository configuration
+repo_name: str = "template-backend"
+github_owner: str = "fddiferd"
 
 # Default region
 region: str = "us-central1"
