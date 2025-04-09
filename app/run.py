@@ -126,6 +126,10 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
 
+@app.get("/cicd-test")
+async def cicd_test():
+    return {"ci": "cd", "test": "test"}
+
 # Add your API routes here
 @app.get("/api/v1/status")
 async def status():
