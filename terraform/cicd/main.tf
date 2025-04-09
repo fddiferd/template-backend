@@ -91,13 +91,13 @@ resource "google_cloud_run_v2_service" "api_service" {
   lifecycle {
     ignore_changes = [template, traffic, annotations, labels]
     create_before_destroy = true
+    # This will prevent recreation of the service, even if configurations change
+    prevent_destroy = true
   }
 
-  # Import statement - this will be commented at first use
-  # import {
-  #   # Import ID format: projects/PROJECT_ID/locations/REGION/services/SERVICE_NAME
-  #   id = "projects/${var.project_id}/locations/${local.region}/services/${var.service_name}"
-  # }
+  # Import the existing service on first apply
+  # Use the following command to import it:
+  # terraform import google_cloud_run_v2_service.api_service[0] projects/template-backend-dev-fddiferd/locations/us-central1/services/backend-rest-api
 
   template {
     containers {

@@ -463,12 +463,10 @@ else
     echo "✅ Firebase service account key found at service_accounts/firebase-${MODE}.json"
   fi
 
-  # CICD Setup including GitHub connection guidance
-  echo 
-  echo "GITHUB CONNECTION FOR CI/CD"
+  # GITHUB CONNECTION FOR CI/CD
   echo "--------------------------"
 
-  # First check if GitHub is connected
+  # Check if GitHub is already connected
   GITHUB_CONNECTED=false
   GITHUB_ALREADY_CONNECTED=${GITHUB_ALREADY_CONNECTED:-false}
   
@@ -478,14 +476,11 @@ else
     GITHUB_CONNECTED=true
   else
     # Try multiple methods to detect GitHub connection
-    GITHUB_CONNECTED_REPOS=$(gcloud beta builds repositories list --project="$PROJECT_NAME" --format="value(name)" 2>/dev/null | grep -i "github" || echo "")
-    GITHUB_CONNECTED_TRIGGERS=$(gcloud beta builds triggers list --project="$PROJECT_NAME" --format="value(github)" 2>/dev/null || echo "")
+    GITHUB_CONNECTED_REPOS=$(gcloud beta builds triggers list --project="$PROJECT_NAME" --format="value(github)" 2>/dev/null || echo "")
     
-    if [[ -n "$GITHUB_CONNECTED_REPOS" || -n "$GITHUB_CONNECTED_TRIGGERS" ]]; then
+    if [[ -n "$GITHUB_CONNECTED_REPOS" ]]; then
       echo "✅ GitHub connection detected in your GCP project"
       GITHUB_CONNECTED=true
-      
-      # Recommend setting the flag for future runs
       echo "Add GITHUB_ALREADY_CONNECTED=true to your .env file to skip detection in the future"
     else
       echo "⚠️ GitHub connection not detected. You need to connect GitHub to Cloud Build."
@@ -518,41 +513,54 @@ else
     fi
   fi
 
-  # If GitHub is connected, proceed with deployment setup
+  # If GitHub is connected, create the trigger using gcloud instead of Terraform
   if [[ "$GITHUB_CONNECTED" == "true" ]]; then
-    # Mark GitHub as connected in Terraform configuration
-    sed -i'.bak' 's/skip_resource_creation = .*/skip_resource_creation = false/' terraform/cicd/terraform.tfvars
+    # Skip Terraform for the GitHub-specific resources
+    sed -i'.bak' 's/skip_resource_creation = .*/skip_resource_creation = true/' terraform/cicd/terraform.tfvars
     rm -f terraform/cicd/terraform.tfvars.bak 2>/dev/null || true
     
-    # Initialize and apply Terraform for CICD
-    echo "Running Terraform CICD setup for creating triggers..."
+    # Initialize and apply Terraform for CICD (for non-GitHub resources)
+    echo "Running Terraform CICD setup for non-GitHub resources..."
     cd terraform/cicd
     terraform init
-    
-    # Apply the CICD Terraform configuration
     terraform apply -auto-approve || {
       echo "⚠️ There were some errors in the CICD setup, but we'll continue."
       echo "These are typically not critical and deployment can still proceed."
     }
     cd ../..
-    echo "✅ CICD Terraform setup completed"
     
-    # Run initial deployment
-    echo
-    echo "DEPLOYING APPLICATION"
-    echo "---------------------"
-    echo "Initiating first deployment now..."
+    # Check if the trigger already exists
+    TRIGGER_EXISTS=$(gcloud builds triggers list --project="$PROJECT_NAME" --filter="name=dev-branch-trigger" --format="value(name)" 2>/dev/null || echo "")
     
-    # Run deploy script if it exists
-    if [[ -f "./scripts/cicd/deploy.sh" ]]; then
-      ./scripts/cicd/deploy.sh
+    if [[ -z "$TRIGGER_EXISTS" ]]; then
+      echo "Creating Cloud Build trigger for development branches..."
+      # Create the trigger using gcloud
+      gcloud builds triggers create github \
+        --name="dev-branch-trigger" \
+        --description="Build and deploy on any branch except main" \
+        --repo-owner="$GITHUB_OWNER" \
+        --repo-name="$REPO_NAME" \
+        --branch-pattern="^(?!main$).*$" \
+        --build-config="cloudbuild.yaml" \
+        --included-files="app/**,docker/**,config,cloudbuild.yaml,pyproject.toml" \
+        --substitutions="_SERVICE_NAME=$SERVICE_NAME,_REPO_NAME=$REPO_NAME,_REGION=$REGION" \
+        --project="$PROJECT_NAME" || {
+          echo "⚠️ Error creating Cloud Build trigger. This might be due to:"
+          echo "1. The GitHub repository isn't properly connected to Cloud Build"
+          echo "2. You don't have sufficient permissions"
+          echo "3. The GitHub connection is still being set up"
+          echo ""
+          echo "You can try to create the trigger manually in the Cloud Console:"
+          echo "https://console.cloud.google.com/cloud-build/triggers/create?project=$PROJECT_NAME"
+        }
     else
-      echo "⚠️ Deployment script not found at ./scripts/cicd/deploy.sh"
-      echo "Please check your project structure or deploy manually."
+      echo "✅ Cloud Build trigger 'dev-branch-trigger' already exists"
     fi
+    
+    echo "✅ CICD setup completed"
   else
-    echo "⚠️ GitHub connection is required for deployment."
-    echo "Please connect GitHub to Cloud Build and then run this script again or deploy manually."
+    echo "⚠️ GitHub connection is required for CI/CD."
+    echo "Please connect GitHub to Cloud Build and then run this script again to set up CI/CD."
   fi
 fi
 
