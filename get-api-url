@@ -1,0 +1,41 @@
+#!/bin/bash
+# Script to get the current API URL based on environment mode
+
+# Get configuration values
+MODE=$(grep -E "^MODE=" .env | cut -d= -f2)
+SERVICE_NAME=$(cat config | grep "service_name" | cut -d= -f2 | tr -d "[:space:]'" | tr -d '"')
+PROJECT_NAME=$(cat config | grep "gcp_project_id" | cut -d= -f2 | tr -d "[:space:]'" | tr -d '"')
+DEV_SCHEMA=$(grep -E "^DEV_SCHEMA_NAME=" .env | cut -d= -f2)
+
+# Determine project ID based on mode
+if [ "$MODE" = "dev" ]; then
+  PROJECT_ID="${PROJECT_NAME}-${MODE}-${DEV_SCHEMA}"
+else
+  PROJECT_ID="${PROJECT_NAME}-${MODE}"
+fi
+
+# Check for optional arguments
+ENDPOINT=""
+if [ "$1" = "health" ]; then
+  ENDPOINT="/health"
+elif [ "$1" = "cicd" ] || [ "$1" = "cicd-test" ]; then
+  ENDPOINT="/cicd-test"
+fi
+
+# Get service URL
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=us-central1 --project=$PROJECT_ID --format="value(status.url)" 2>/dev/null)
+
+if [ -z "$SERVICE_URL" ]; then
+  echo "Error: Could not retrieve API URL. Make sure the service exists and you have permission."
+  exit 1
+fi
+
+# Display URL (with endpoint if specified)
+echo "${SERVICE_URL}${ENDPOINT}"
+
+# If -c or --curl flag is provided, make a curl request to the endpoint
+if [ "$2" = "-c" ] || [ "$2" = "--curl" ] || [ "$1" = "-c" ] || [ "$1" = "--curl" ]; then
+  echo "Making request to ${SERVICE_URL}${ENDPOINT}"
+  curl -s "${SERVICE_URL}${ENDPOINT}"
+  echo
+fi 
