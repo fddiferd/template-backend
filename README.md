@@ -151,7 +151,7 @@ The bootstrap script creates a new GCP project with all the necessary services e
 ```
 
 This will:
-1. Create a GCP project with pattern `<project_id>-<dev_schema_name>` for dev, or `<project_id>-<environment>` for staging/prod
+1. Create a GCP project with pattern `<project_id>-DEV_<dev_schema_name>` for dev, or `<project_id>-<environment>` for staging/prod
 2. Enable required GCP APIs
 3. Set up Firebase integration
 4. Configure Artifact Registry

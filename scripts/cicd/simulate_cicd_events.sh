@@ -39,11 +39,11 @@ if [ "$MODE" == "dev" ]; then
     echo "DEV_SCHEMA_NAME not set in .env, required for dev mode"
     exit 1
   fi
-  PROJECT_NAME="${PROJECT_ID}-${DEV_SCHEMA_NAME}"
+  PROJECT_NAME="${PROJECT_ID,,}-dev_${DEV_SCHEMA_NAME,,}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${PROJECT_ID}-staging"
+  PROJECT_NAME="${PROJECT_ID,,}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${PROJECT_ID}-prod"
+  PROJECT_NAME="${PROJECT_ID,,}-prod"
 else
   echo "Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1

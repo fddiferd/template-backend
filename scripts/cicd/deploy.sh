@@ -62,11 +62,11 @@ echo "---------------------"
 
 # Project naming based on mode
 if [ "$MODE" == "dev" ]; then
-  PROJECT_NAME="${PROJECT_ID}-${DEV_SCHEMA_NAME}"
+  PROJECT_NAME="${PROJECT_ID,,}-dev_${DEV_SCHEMA_NAME,,}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${PROJECT_ID}-staging"
+  PROJECT_NAME="${PROJECT_ID,,}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${PROJECT_ID}-prod"
+  PROJECT_NAME="${PROJECT_ID,,}-prod"
 else
   echo "❌ Error: Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1
@@ -114,7 +114,7 @@ IMAGE_NAME="${REGION}-docker.pkg.dev/${PROJECT_NAME}/${REPO_NAME}/${SERVICE_NAME
 TAG=$(git rev-parse --short HEAD 2>/dev/null || echo "latest")
 
 echo "Building container image: $IMAGE_NAME:$TAG"
-docker build -t $IMAGE_NAME:$TAG -f docker/Dockerfile .
+docker build --platform linux/amd64 -t $IMAGE_NAME:$TAG -f docker/Dockerfile .
 echo "✅ Container build completed"
 
 #==========================================================================
