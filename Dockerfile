@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy project files
 COPY pyproject.toml ./
-COPY src/ ./src/
+COPY app/ ./app/
 
 # Install dependencies using pip
 RUN pip install --upgrade pip && \
@@ -18,4 +18,4 @@ ENV HOST=0.0.0.0
 EXPOSE 8000
 
 # Run the application
-CMD uvicorn src.app:app --host ${HOST} --port ${PORT}
+CMD uvicorn app.app:app --host ${HOST} --port ${PORT}

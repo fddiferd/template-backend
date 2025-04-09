@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Wedge Golf Backend API"
 authors = ["Wedge Golf <info@wedgegolf.com>"]
 packages = [
-    { include = "src" }
+    { include = "app" }
 ]
 
 [tool.poetry.dependencies]

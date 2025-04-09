@@ -56,7 +56,7 @@ Replace `{env}` with `dev`, `staging`, or `prod`.
 
 3. Run the development server:
    ```bash
-   poetry run uvicorn src.app:app --reload
+   poetry run uvicorn app.run:app --reload
    ```
 
 ## Infrastructure Setup

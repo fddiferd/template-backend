@@ -4,12 +4,14 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
@@ -28,7 +30,7 @@ app.add_middleware(
 )
 
 # Get environment
-environment = os.getenv("ENVIRONMENT", "development")
+environment: str = os.getenv("ENVIRONMENT", "development")
 logger.info(f"Starting API in {environment} environment")
 
 @app.get("/")
