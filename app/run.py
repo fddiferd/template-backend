@@ -128,7 +128,7 @@ async def health_check():
 
 @app.get("/cicd-test")
 async def cicd_test():
-    return {"ci": "cd", "test": "test", "3": "3"}
+    return {"ci": "cd", "test": "test", "4": "4"}
 
 # Add your API routes here
 @app.get("/api/v1/status")

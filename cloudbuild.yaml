@@ -28,7 +28,7 @@ steps:
       - '--set-env-vars'
       - 'ENVIRONMENT=dev,FIREBASE_CRED_PATH=service_accounts/firebase-dev.json'
       - '--service-account'
-      - 'cloudrun-dev-sa@$PROJECT_ID.iam.gserviceaccount.com'
+      - 'cloudrun-$PROJECT_ENV-sa@$PROJECT_ID.iam.gserviceaccount.com'
   
 # Tag the image for easier reference
 images:
@@ -42,6 +42,7 @@ substitutions:
   _SERVICE_NAME: backend-rest-api
   _REPO_NAME: template-backend
   _REGION: us-central1
+  _PROJECT_ENV: dev
 
 # Logging configuration to fix service account error  
 options:

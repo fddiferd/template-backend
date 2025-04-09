@@ -65,6 +65,8 @@ resource "google_project_iam_member" "cloudbuild_roles" {
 resource "google_project_iam_member" "cloudrun_roles" {
   for_each = toset([
     "roles/run.admin", 
+    "roles/run.developer",
+    "roles/run.invoker", 
     "roles/storage.admin", 
     "roles/artifactregistry.writer",
     "roles/artifactregistry.admin", 

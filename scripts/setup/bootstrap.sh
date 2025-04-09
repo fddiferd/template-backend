@@ -179,6 +179,15 @@ includedPermissions:
 - run.services.get
 - run.services.list
 - run.services.update
+- run.services.setIamPolicy
+- run.executions.get
+- run.executions.list
+- run.locations.list
+- run.operations.get
+- run.routes.invoke
+- logging.logEntries.create
+- logging.logEntries.list
+- logging.logEntries.getData
 - storage.objects.create
 - storage.objects.delete
 - storage.objects.get
@@ -277,6 +286,15 @@ includedPermissions:
 - run.services.get
 - run.services.list
 - run.services.update
+- run.services.setIamPolicy
+- run.executions.get
+- run.executions.list
+- run.locations.list
+- run.operations.get
+- run.routes.invoke
+- logging.logEntries.create
+- logging.logEntries.list
+- logging.logEntries.getData
 - storage.objects.create
 - storage.objects.delete
 - storage.objects.get
@@ -420,6 +438,14 @@ else
     echo "✅ Service account $SA_EMAIL already exists"
   fi
 
+  # Ensure the Cloud Run service account has the necessary permissions
+  echo "Ensuring Cloud Run service account has proper permissions..."
+  # Add specific Cloud Run roles that have been causing issues
+  gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${SA_EMAIL}" --role="roles/run.developer" --condition=None
+  gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${SA_EMAIL}" --role="roles/run.invoker" --condition=None
+  # Admin role is already in Terraform but add it here too for immediate effect
+  gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${SA_EMAIL}" --role="roles/run.admin" --condition=None
+  
   # Ensure proper permissions for Cloud Build
   echo "Ensuring proper permissions for Cloud Build service account..."
   CLOUDBUILD_SA=$(gcloud projects get-iam-policy $PROJECT_NAME --format="value(bindings.members)" | grep cloudbuild.gserviceaccount || echo "")
@@ -649,7 +675,7 @@ else
         --branch-pattern=".*" \
         --build-config="cloudbuild.yaml" \
         --included-files="app/**,docker/**,config,cloudbuild.yaml,pyproject.toml" \
-        --substitutions="_SERVICE_NAME=$SERVICE_NAME,_REPO_NAME=$REPO_NAME,_REGION=$REGION" \
+        --substitutions="_SERVICE_NAME=$SERVICE_NAME,_REPO_NAME=$REPO_NAME,_REGION=$REGION,_PROJECT_ENV=$MODE" \
         --project="$PROJECT_NAME" || {
           TRIGGER_ERROR=$?
           echo ""
@@ -686,6 +712,7 @@ else
           echo "   _SERVICE_NAME: $SERVICE_NAME"
           echo "   _REPO_NAME: $REPO_NAME"
           echo "   _REGION: $REGION"
+          echo "   _PROJECT_ENV: $MODE"
           echo ""
           echo "5. Click 'Create' to save the trigger"
           echo ""
