@@ -1,5 +1,5 @@
 environment = "prod"
-billing_account_id = "01224A-A47992-31AB42"
+billing_account_id = ""
 project_ids = {
   prod = "template-backend-prod"
 }
