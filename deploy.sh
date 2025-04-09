@@ -4,10 +4,21 @@ set -e
 # Load environment variables
 source .env
 
-# Check if GCP_PROJECT_ID is set
+# Load config values
+GCP_PROJECT_ID=$(grep -oP '^gcp_project_id: str = \K.*(?=\s*$)' config | tr -d "'")
+SERVICE_NAME=$(grep -oP '^service_name: str = \K.*(?=\s*$)' config | tr -d "'")
+REPO_NAME=$(grep -oP '^repo_name: str = \K.*(?=\s*$)' config | tr -d "'")
+REGION=$(grep -oP '^region: str = \K.*(?=\s*$)' config | tr -d "'")
+
+# Check if PROJECT_ID from config is available
 if [ -z "$GCP_PROJECT_ID" ]; then
-  echo "Error: GCP_PROJECT_ID is not set in .env"
+  echo "Error: gcp_project_id is not set in config file"
   exit 1
+fi
+
+# Use PROJECT_ID from .env if specified, otherwise use from config
+if [ -z "$PROJECT_ID" ]; then
+  PROJECT_ID="$GCP_PROJECT_ID"
 fi
 
 # Check the mode
@@ -18,20 +29,28 @@ fi
 
 # Set project name based on mode
 if [ "$MODE" == "dev" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}-dev"
+  if [ -z "$DEV_SCHEMA_NAME" ]; then
+    echo "DEV_SCHEMA_NAME not set in .env, required for dev mode"
+    exit 1
+  fi
+  PROJECT_NAME="${PROJECT_ID}-${DEV_SCHEMA_NAME}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}-staging"
+  PROJECT_NAME="${PROJECT_ID}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}"
+  PROJECT_NAME="${PROJECT_ID}-prod"
 else
   echo "Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1
 fi
 
-# Service name
-SERVICE_NAME="wedge-api"
-REGION="us-central1"
-ARTIFACT_REPO="${REGION}-docker.pkg.dev/${PROJECT_NAME}/wedge-api"
+# Check if project exists
+if ! gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
+  echo "Error: Project $PROJECT_NAME does not exist. Run bootstrap.sh first."
+  exit 1
+fi
+
+# Build and deploy service
+ARTIFACT_REPO="${REGION}-docker.pkg.dev/${PROJECT_NAME}/${REPO_NAME}"
 
 echo "Building and deploying to project: $PROJECT_NAME"
 echo "Mode: $MODE"

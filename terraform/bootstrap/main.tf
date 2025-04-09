@@ -12,14 +12,20 @@ terraform {
   }
 }
 
+# Get the first project ID from the map
+locals {
+  first_project_id = values(var.project_ids)[0]
+  region = var.region
+}
+
 provider "google" {
-  project = "wedge-golf-${var.environment}"
-  region  = "us-central1"
+  project = local.first_project_id
+  region  = local.region
 }
 
 provider "google-beta" {
-  project = "wedge-golf-${var.environment}"
-  region  = "us-central1"
+  project = local.first_project_id
+  region  = local.region
 }
 
 # Enable billing for each project
@@ -90,15 +96,15 @@ resource "google_project_service" "required_apis" {
 }
 
 # Create Artifact Registry repositories
-resource "google_artifact_registry_repository" "wedge_api" {
+resource "google_artifact_registry_repository" "api_repo" {
   for_each = var.project_ids
 
   provider = google-beta
   project  = each.value
-  location = "us-central1"
+  location = local.region
   
-  repository_id = "wedge-api"
-  description   = "Docker repository for Wedge API"
+  repository_id = var.repo_name
+  description   = "Docker repository for ${var.service_name}"
   format        = "DOCKER"
 
   depends_on = [google_project_service.required_apis]
@@ -121,8 +127,8 @@ resource "google_artifact_registry_repository_iam_member" "ci_cd_access" {
 
   provider   = google-beta
   project    = each.value
-  location   = google_artifact_registry_repository.wedge_api[each.key].location
-  repository = google_artifact_registry_repository.wedge_api[each.key].name
+  location   = google_artifact_registry_repository.api_repo[each.key].location
+  repository = google_artifact_registry_repository.api_repo[each.key].name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_project_service_identity.cloudbuild[each.key].email}"
 
@@ -135,8 +141,8 @@ resource "google_artifact_registry_repository_iam_member" "cloud_run_access" {
 
   provider   = google-beta
   project    = each.value
-  location   = google_artifact_registry_repository.wedge_api[each.key].location
-  repository = google_artifact_registry_repository.wedge_api[each.key].name
+  location   = google_artifact_registry_repository.api_repo[each.key].location
+  repository = google_artifact_registry_repository.api_repo[each.key].name
   role       = "roles/artifactregistry.reader"
   member     = "serviceAccount:service-${data.google_project.project[each.key].number}@serverless-robot-prod.iam.gserviceaccount.com"
 

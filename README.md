@@ -1,249 +1,114 @@
-# Wedge Golf Backend
+# FastAPI Application with GCP Deployment
 
-A FastAPI-based backend service for Wedge Golf.
-
-## API URLs
-
-The API is available at the following URLs for each environment:
-
-- Development: https://wedge-api-b7p7avi2qa-uc.a.run.app
-- Staging: Not deployed
-- Production: https://wedge-api-rhmirzqk6q-uc.a.run.app
-
-To get the current URL for any environment, run:
-```bash
-gcloud run services describe wedge-api \
-  --platform managed \
-  --region us-central1 \
-  --project wedge-golf-{env} \
-  --format="value(status.url)"
-```
-Replace `{env}` with `dev`, `staging`, or `prod`.
+This repository contains a FastAPI application with automated infrastructure for deployment to Google Cloud Platform using Cloud Run, Artifact Registry, and Firebase integration.
 
 ## Project Structure
 
+- `app/`: FastAPI application code
+- `terraform/`: Infrastructure as Code using Terraform
+  - `bootstrap/`: Initial GCP project setup
+  - `cicd/`: CI/CD and deployment configuration
+- `tests/`: Application tests
+- Scripts:
+  - `bootstrap.sh`: Creates and configures GCP projects
+  - `deploy.sh`: Manual deployment script
+- Configuration:
+  - `config`: Project-level configuration (shared across all developers)
+  - `.env`: Developer-specific environment variables
+
+## Configuration
+
+### Project Configuration
+
+The `config` file contains project-level settings that are shared across all developers:
+
 ```
-.
-├── app/                    # Application source code
-├── terraform/             # Infrastructure as Code
-│   ├── bootstrap/        # Initial project setup
-│   └── cicd/            # CI/CD and service deployment
-├── cloudbuilds/          # Cloud Build configurations
-├── service_accounts/     # Service account credentials
-└── Dockerfile           # Container configuration
+# Project configuration (shared across all developers)
+gcp_project_id: str = 'fast-api-app'
+environments: list[str] = ["dev", "staging", "prod"]
+service_name: str = "fast-api"
+repo_name: str = "fast-api"
+region: str = "us-central1"
+# ... other project settings
 ```
 
-## Prerequisites
+### Developer Environment
 
-- Python 3.11+
-- Poetry for dependency management
-- Google Cloud SDK
-- Terraform 1.5+
-- Access to the Google Cloud project(s)
+The `.env` file contains developer-specific settings:
 
-## Local Development
+```
+GCP_BILLING_ACCOUNT_ID=your-billing-account-id
+DEV_SCHEMA_NAME=your-username
+MODE=dev  # dev, staging, or prod
+```
 
-1. Install dependencies:
-   ```bash
-   poetry install
+## Environment Setup
+
+1. Configure your `.env` file with your developer-specific variables
+   
+2. Run the bootstrap script to set up the GCP project:
+   ```
+   ./bootstrap.sh
    ```
 
-2. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   To set up all environments (dev, staging, prod):
    ```
-
-3. Run the development server:
-   ```bash
-   poetry run uvicorn app.run:app --reload
+   ./bootstrap.sh all-environments
    ```
-
-## Infrastructure Setup
-
-The infrastructure is managed using Terraform and is split into two stages:
-
-### 1. Bootstrap (One-time setup)
-
-The bootstrap configuration in `terraform/bootstrap` sets up:
-- Firebase project configuration
-- Required Google Cloud APIs
-
-To apply for each environment:
-```bash
-cd terraform/bootstrap
-terraform init
-terraform apply -var="environment=dev"    # For development
-terraform apply -var="environment=staging" # For staging
-terraform apply -var="environment=prod"   # For production
-```
-
-### 2. CI/CD and Service Deployment
-
-The CICD configuration in `terraform/cicd` manages:
-- Cloud Run service
-- Artifact Registry repository
-- Service accounts and IAM permissions
-- Public access configuration
-
-To apply for each environment:
-```bash
-cd terraform/cicd
-terraform init
-terraform apply -var="environment=dev" -var-file="terraform.tfvars" # For development
-terraform apply -var="environment=staging" -var-file="terraform.tfvars" # For staging
-terraform apply -var="environment=prod" -var-file="terraform.tfvars"   # For production
-```
 
 ## Deployment
 
-### Prerequisites
-- Docker Desktop installed and running
-- Google Cloud SDK installed and configured
-- Appropriate IAM permissions (managed through Terraform)
-- For ARM-based machines (M1/M2 Mac), ensure Docker Desktop is configured for multi-platform builds
-- Must be run from the project root directory where the Dockerfile is located
-- Billing must be enabled for the target GCP project
-- Artifact Registry repository must be created in the target project
+The application automatically deploys when code is pushed:
+- Push to any branch: Deploys to dev environment
+- Push to main branch: Deploys to staging environment
+- Create a tag starting with 'v': Deploys to production
 
-### Manual Deployment
+For manual deployment:
+```
+./deploy.sh
+```
 
-1. Build and push the Docker image for the desired environment:
-   ```bash
-   # Navigate to the project root directory
-   cd /path/to/wedge-backend-production-ready
+## Development
 
-   # For ARM-based machines (M1/M2 Mac)
-   docker buildx build --platform linux/amd64 -t gcr.io/wedge-golf-dev/wedge-api:latest .
-   docker push gcr.io/wedge-golf-dev/wedge-api:latest
-
-   # For x86 machines
-   docker build -t gcr.io/wedge-golf-dev/wedge-api:latest .
-   docker push gcr.io/wedge-golf-dev/wedge-api:latest
-
-   # For staging (requires billing to be enabled)
-   docker buildx build --platform linux/amd64 -t gcr.io/wedge-golf-staging/wedge-api:latest .
-   docker push gcr.io/wedge-golf-staging/wedge-api:latest
-
-   # For production (requires billing to be enabled)
-   docker buildx build --platform linux/amd64 -t gcr.io/wedge-golf-prod/wedge-api:latest .
-   docker push gcr.io/wedge-golf-prod/wedge-api:latest
+1. Install dependencies:
+   ```
+   pip install poetry
+   poetry install
    ```
 
-2. Deploy to Cloud Run for the desired environment:
-   ```bash
-   # For development
-   gcloud run deploy wedge-api \
-     --image gcr.io/wedge-golf-dev/wedge-api:latest \
-     --platform managed \
-     --region us-central1 \
-     --project wedge-golf-dev
-
-   # For staging (requires billing to be enabled)
-   gcloud run deploy wedge-api \
-     --image gcr.io/wedge-golf-staging/wedge-api:latest \
-     --platform managed \
-     --region us-central1 \
-     --project wedge-golf-staging
-
-   # For production (requires billing to be enabled)
-   gcloud run deploy wedge-api \
-     --image gcr.io/wedge-golf-prod/wedge-api:latest \
-     --platform managed \
-     --region us-central1 \
-     --project wedge-golf-prod
+2. Run the application locally:
+   ```
+   poetry run uvicorn app.run:app --reload
    ```
 
-### Required IAM Permissions
-The following IAM roles are required for building and pushing Docker images:
-- `roles/artifactregistry.writer` - For pushing Docker images
-- `roles/storage.admin` - For storage access
-- `roles/logging.logWriter` - For writing build logs
+3. Run tests:
+   ```
+   poetry run pytest
+   ```
 
-These permissions are managed through Terraform in `terraform/cicd/main.tf`.
+## Infrastructure
 
-### Troubleshooting
+The infrastructure is managed with Terraform:
 
-1. **Build Failures**
-   - Check Cloud Build logs
-   - Verify Dockerfile configuration
-   - Ensure all required files are included in the build context
-   - For ARM-based machines, verify platform compatibility using `docker inspect gcr.io/wedge-golf-dev/wedge-api:latest | grep Architecture`
+- GCP Projects with environment-specific naming:
+  - Dev: `<project_id>-<dev_schema_name>` (unique per developer)
+  - Staging: `<project_id>-staging`
+  - Prod: `<project_id>-prod`
+- Firebase integration
+- Artifact Registry for Docker images
+- Cloud Run for hosting the API
+- Cloud Build for CI/CD
+- IAM permissions and service accounts
 
-2. **Deployment Failures**
-   - Check service account permissions
-   - Verify environment variables are set correctly
-   - Check Cloud Run revision logs
-   - Ensure Docker image is built for the correct platform (linux/amd64)
-   - Verify billing is enabled for the target project
-   - Ensure Artifact Registry repository exists in the target project
+## CI/CD Pipeline
 
-3. **Runtime Issues**
-   - Check application logs in Cloud Logging
-   - Verify Firebase credentials are accessible
-   - Check resource utilization metrics
+The CI/CD pipeline is defined in `cloudbuild.yaml` and automatically:
 
-## Service Configuration
-
-Each environment's Cloud Run service is configured with:
-- Memory: 512Mi
-- CPU: 1000m (1 vCPU)
-- Concurrency: 80 requests per instance
-- Auto-scaling: 0-3 instances
-- Startup probe: TCP check on port 8000
-- Environment variables:
-  - `ENVIRONMENT`: dev/staging/prod
-  - `FIREBASE_CRED_PATH`: service_accounts/firebase-{env}.json
-  - `HOST`: 0.0.0.0
-
-## Service Accounts
-
-Each environment has its own service account:
-1. Cloud Run Service Account (`cloudrun-{env}-sa@wedge-golf-{env}.iam.gserviceaccount.com`)
-   - Used by the application for accessing Google Cloud services
-   - Has permissions for Firebase, Cloud Storage, and Firestore
-
-2. Cloud Build Service Account (managed by Google Cloud)
-   - Used for building and deploying the application
-   - Has permissions to deploy to Cloud Run and access Artifact Registry
-
-## Monitoring and Logs
-
-- Cloud Run logs: Available in Google Cloud Console for each environment
-- Application logs: Structured JSON logs sent to Cloud Logging
-- Metrics: Available in Cloud Monitoring
-
-## Security
-
-- HTTPS enforced by default
-- Public endpoint with authentication handled by Firebase Auth
-- Secrets managed through environment variables and service account credentials
-- IAM permissions follow the principle of least privilege
-
-## Troubleshooting
-
-1. **Build Failures**
-   - Check Cloud Build logs
-   - Verify Dockerfile configuration
-   - Ensure all required files are included in the build context
-
-2. **Deployment Failures**
-   - Check service account permissions
-   - Verify environment variables are set correctly
-   - Check Cloud Run revision logs
-
-3. **Runtime Issues**
-   - Check application logs in Cloud Logging
-   - Verify Firebase credentials are accessible
-   - Check resource utilization metrics
-
-## Contributing
-
-1. Create a new branch from the appropriate environment branch
-2. Make your changes
-3. Submit a pull request to the target environment branch
-4. After review and approval, changes will be merged and automatically deployed
+1. Builds a Docker image from the Dockerfile
+2. Pushes the image to Artifact Registry
+3. Deploys the image to Cloud Run
+4. Tags the image as latest
 
 ## License
 
-Proprietary - All rights reserved
+MIT

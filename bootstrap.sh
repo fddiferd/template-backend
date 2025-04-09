@@ -4,10 +4,21 @@ set -e
 # Load environment variables
 source .env
 
-# Check if GCP_PROJECT_ID and GCP_BILLING_ACCOUNT_ID are set
+# Load config values
+GCP_PROJECT_ID=$(grep -oP '^gcp_project_id: str = \K.*(?=\s*$)' config | tr -d "'")
+SERVICE_NAME=$(grep -oP '^service_name: str = \K.*(?=\s*$)' config | tr -d "'")
+REPO_NAME=$(grep -oP '^repo_name: str = \K.*(?=\s*$)' config | tr -d "'")
+REGION=$(grep -oP '^region: str = \K.*(?=\s*$)' config | tr -d "'")
+
+# Check if PROJECT_ID from config is available
 if [ -z "$GCP_PROJECT_ID" ]; then
-  echo "Error: GCP_PROJECT_ID is not set in .env"
+  echo "Error: gcp_project_id is not set in config file"
   exit 1
+fi
+
+# Use PROJECT_ID from .env if specified, otherwise use from config
+if [ -z "$PROJECT_ID" ]; then
+  PROJECT_ID="$GCP_PROJECT_ID"
 fi
 
 if [ -z "$GCP_BILLING_ACCOUNT_ID" ]; then
@@ -20,13 +31,18 @@ if [ -z "$MODE" ]; then
   MODE="dev"
 fi
 
+if [ -z "$DEV_SCHEMA_NAME" ]; then
+  echo "DEV_SCHEMA_NAME not set in .env, required for dev mode"
+  exit 1
+fi
+
 # Project naming based on mode
 if [ "$MODE" == "dev" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}-dev"
+  PROJECT_NAME="${PROJECT_ID}-${DEV_SCHEMA_NAME}"
 elif [ "$MODE" == "staging" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}-staging"
+  PROJECT_NAME="${PROJECT_ID}-staging"
 elif [ "$MODE" == "prod" ]; then
-  PROJECT_NAME="${GCP_PROJECT_ID}"
+  PROJECT_NAME="${PROJECT_ID}-prod"
 else
   echo "Invalid MODE: $MODE. Must be dev, staging, or prod."
   exit 1
@@ -37,12 +53,29 @@ echo "Checking if project $PROJECT_NAME exists..."
 # Check if project exists
 if gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
   echo "Project $PROJECT_NAME already exists."
-else
-  echo "Creating project $PROJECT_NAME..."
-  gcloud projects create "$PROJECT_NAME" --name="$PROJECT_NAME"
   
-  echo "Linking billing account to project..."
-  gcloud billing projects link "$PROJECT_NAME" --billing-account="$GCP_BILLING_ACCOUNT_ID"
+  # Check permissions
+  echo "Checking permissions..."
+  if gcloud projects get-iam-policy "$PROJECT_NAME" &> /dev/null; then
+    echo "You have sufficient permissions on this project."
+  else
+    echo "Error: You don't have sufficient permissions on this project."
+    exit 1
+  fi
+else
+  echo "Project doesn't exist. Checking billing account..."
+  
+  # Check if billing account exists
+  if gcloud billing accounts get-info "$GCP_BILLING_ACCOUNT_ID" &> /dev/null; then
+    echo "Billing account exists. Creating project $PROJECT_NAME..."
+    gcloud projects create "$PROJECT_NAME" --name="$PROJECT_NAME"
+    
+    echo "Linking billing account to project..."
+    gcloud billing projects link "$PROJECT_NAME" --billing-account="$GCP_BILLING_ACCOUNT_ID"
+  else
+    echo "Error: Billing account $GCP_BILLING_ACCOUNT_ID doesn't exist or you don't have access to it."
+    exit 1
+  fi
 fi
 
 echo "Enabling required APIs..."
@@ -56,7 +89,14 @@ gcloud services enable --project="$PROJECT_NAME" \
   iam.googleapis.com \
   serviceusage.googleapis.com
 
+# Get GitHub repository information for Terraform
+REPO_OWNER=$(git config --get remote.origin.url | sed -e 's/.*github.com[:/]\([^/]*\).*/\1/')
+REPO_NAME=$(basename -s .git $(git config --get remote.origin.url))
+USER_EMAIL=$(git config --get user.email)
+
+# Prepare Terraform variables
 echo "Setting up Terraform configuration..."
+
 # Create terraform.tfvars file for bootstrap
 mkdir -p terraform/bootstrap
 cat > terraform/bootstrap/terraform.tfvars << EOF
@@ -65,14 +105,54 @@ billing_account_id = "$GCP_BILLING_ACCOUNT_ID"
 project_ids = {
   $MODE = "$PROJECT_NAME"
 }
+region = "$REGION"
+service_name = "$SERVICE_NAME"
+repo_name = "$REPO_NAME"
+EOF
+
+# Create terraform.tfvars file for CICD
+mkdir -p terraform/cicd
+cat > terraform/cicd/terraform.tfvars << EOF
+environment = "$MODE"
+project_id = "$PROJECT_NAME"
+github_owner = "$REPO_OWNER"
+github_repo = "$REPO_NAME"
+user_email = "$USER_EMAIL"
+region = "$REGION"
+service_name = "$SERVICE_NAME"
+repo_name = "$REPO_NAME"
 EOF
 
 # Initialize and apply Terraform
-echo "Initializing Terraform..."
+echo "Running Terraform to set up infrastructure..."
 cd terraform/bootstrap
 terraform init
-
-echo "Applying Terraform bootstrap configuration..."
 terraform apply -auto-approve
+cd ../cicd
+terraform init
+terraform apply -auto-approve
+cd ../..
 
-echo "Project setup complete!" 
+echo "Project $PROJECT_NAME setup complete!"
+
+# If requested, create all three environments
+if [ "$1" == "all-environments" ]; then
+  echo "Creating all environments (dev, staging, prod)..."
+  
+  # Save original mode
+  ORIGINAL_MODE="$MODE"
+  
+  # Create staging environment
+  echo "Creating staging environment..."
+  export MODE="staging"
+  ./bootstrap.sh
+  
+  # Create production environment
+  echo "Creating production environment..."
+  export MODE="prod"
+  ./bootstrap.sh
+  
+  # Restore original mode
+  export MODE="$ORIGINAL_MODE"
+  echo "All environments set up successfully!"
+fi 
