@@ -184,6 +184,7 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --region $REGION \
   --allow-unauthenticated \
+  --set-env-vars="ENVIRONMENT=$MODE" \
   --project $PROJECT_NAME
 
 # Get deployed URL

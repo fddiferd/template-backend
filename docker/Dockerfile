@@ -4,6 +4,7 @@ WORKDIR /app
 
 # Copy project definition
 COPY pyproject.toml ./
+COPY config ./
 
 # Copy application code
 COPY app/ ./app/
@@ -17,6 +18,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
 ENV PORT=8000
 ENV HOST=0.0.0.0
 ENV PYTHONUNBUFFERED=1
+# Set default environment to production for safety
+ENV ENVIRONMENT=production
 
 # Expose port
 EXPOSE 8000

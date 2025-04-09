@@ -1,8 +1,8 @@
-environment = "staging"
+environment = "prod"
 billing_account_id = "01224A-A47992-31AB42"
 project_ids = {
-  staging = "template-backend-staging"
+  prod = "template-backend-prod"
 }
 region = "us-central1"
-service_name = "template-api"
+service_name = "backend-rest-api"
 repo_name = "template-backend"
