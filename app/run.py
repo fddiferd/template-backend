@@ -84,7 +84,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "message": f"Welcome to {formatted_name}",
+        "message": f"Welcome to {formatted_name} (CI/CD Test)",
         "environment": environment,
         "project_id": project_id,
         "service_name": service_name,
