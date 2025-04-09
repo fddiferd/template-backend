@@ -50,6 +50,7 @@ resource "google_project_iam_member" "cloudbuild_roles" {
     "roles/storage.objectViewer",
     "roles/storage.objectCreator",
     "roles/artifactregistry.writer",
+    "roles/artifactregistry.admin", 
     "roles/storage.admin",
     "roles/logging.logWriter",
     "roles/run.admin",
@@ -65,7 +66,9 @@ resource "google_project_iam_member" "cloudrun_roles" {
   for_each = toset([
     "roles/run.admin", 
     "roles/storage.admin", 
-    "roles/artifactregistry.writer", 
+    "roles/artifactregistry.writer",
+    "roles/artifactregistry.admin", 
+    "roles/logging.logWriter",
     "roles/datastore.user", 
     "roles/firebase.admin"
   ])
@@ -79,6 +82,30 @@ data "google_artifact_registry_repository" "existing_repo" {
   location      = local.region
   repository_id = var.repo_name
   project       = var.project_id
+}
+
+# Add specific repository-level permissions for Cloud Build service account
+resource "google_artifact_registry_repository_iam_member" "cloudbuild_repo_access" {
+  count      = var.skip_resource_creation ? 0 : 1
+  repository = data.google_artifact_registry_repository.existing_repo.name
+  location   = data.google_artifact_registry_repository.existing_repo.location
+  project    = var.project_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
+
+  depends_on = [data.google_artifact_registry_repository.existing_repo]
+}
+
+# Add specific repository-level permissions for Cloud Run service account
+resource "google_artifact_registry_repository_iam_member" "cloudrun_repo_access" {
+  count      = var.skip_resource_creation ? 0 : 1
+  repository = data.google_artifact_registry_repository.existing_repo.name
+  location   = data.google_artifact_registry_repository.existing_repo.location
+  project    = var.project_id
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${data.google_service_account.cloudrun_sa.email}"
+
+  depends_on = [data.google_artifact_registry_repository.existing_repo]
 }
 
 resource "google_cloud_run_v2_service" "api_service" {

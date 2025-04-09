@@ -420,17 +420,59 @@ else
     echo "✅ Service account $SA_EMAIL already exists"
   fi
 
+  # Ensure proper permissions for Cloud Build
+  echo "Ensuring proper permissions for Cloud Build service account..."
+  CLOUDBUILD_SA=$(gcloud projects get-iam-policy $PROJECT_NAME --format="value(bindings.members)" | grep cloudbuild.gserviceaccount || echo "")
+  if [[ -z "$CLOUDBUILD_SA" ]]; then
+    echo "⚠️ Cloud Build service account not found. Creating permissions manually..."
+    PROJECT_NUMBER=$(gcloud projects describe $PROJECT_NAME --format="value(projectNumber)")
+    CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+    
+    # Add key permissions
+    echo "Adding logging permissions to Cloud Build service account..."
+    gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/logging.logWriter"
+    
+    echo "Adding Artifact Registry permissions to Cloud Build service account..."
+    gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/artifactregistry.writer"
+  else
+    echo "✅ Cloud Build service account found, ensuring it has permissions..."
+    PROJECT_NUMBER=$(gcloud projects describe $PROJECT_NAME --format="value(projectNumber)")
+    CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+    
+    # Add key permissions regardless (idempotent)
+    gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/logging.logWriter"
+    gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${CLOUDBUILD_SA}" --role="roles/artifactregistry.writer"
+  fi
+
   # Check for existing Artifact Registry repository
   REPO_EXISTS=$(gcloud artifacts repositories describe "$REPO_NAME" --project="$PROJECT_NAME" --location="$REGION" 2>/dev/null || echo "")
 
   if [[ -n "$REPO_EXISTS" ]]; then
     echo "✅ Artifact Registry repository $REPO_NAME already exists"
+    
+    # Add repository-level permissions
+    echo "Adding repository-level permissions for Cloud Build service account..."
+    gcloud artifacts repositories add-iam-policy-binding $REPO_NAME --location=$REGION --member="serviceAccount:${CLOUDBUILD_SA}" --role=roles/artifactregistry.writer --project=$PROJECT_NAME || echo "⚠️ Could not add Cloud Build permissions to repository, will try again later"
+    
+    echo "Adding repository-level permissions for Cloud Run service account..."
+    gcloud artifacts repositories add-iam-policy-binding $REPO_NAME --location=$REGION --member="serviceAccount:${SA_EMAIL}" --role=roles/artifactregistry.writer --project=$PROJECT_NAME || echo "⚠️ Could not add Cloud Run permissions to repository, will try again later"
+    
     # Add a note to the Terraform variables file to avoid recreation
     echo "# Repository already exists - creation will be skipped" >> terraform/bootstrap/terraform.tfvars
   else
     echo "Creating Artifact Registry repository $REPO_NAME..."
-    # Let Terraform create the repository
-    echo "# Repository doesn't exist - will be created by Terraform" >> terraform/bootstrap/terraform.tfvars
+    # Create the repository directly to ensure it exists before Terraform tries to use it
+    gcloud artifacts repositories create $REPO_NAME --repository-format=docker --location=$REGION --description="Docker repository for $REPO_NAME" --project=$PROJECT_NAME || echo "⚠️ Could not create repository, will try with Terraform"
+    
+    # If creation was successful, add permissions
+    if [[ -n "$(gcloud artifacts repositories describe "$REPO_NAME" --project="$PROJECT_NAME" --location="$REGION" 2>/dev/null || echo "")" ]]; then
+      echo "✅ Repository created successfully, adding permissions..."
+      gcloud artifacts repositories add-iam-policy-binding $REPO_NAME --location=$REGION --member="serviceAccount:${CLOUDBUILD_SA}" --role=roles/artifactregistry.writer --project=$PROJECT_NAME || echo "⚠️ Could not add Cloud Build permissions to repository"
+      gcloud artifacts repositories add-iam-policy-binding $REPO_NAME --location=$REGION --member="serviceAccount:${SA_EMAIL}" --role=roles/artifactregistry.writer --project=$PROJECT_NAME || echo "⚠️ Could not add Cloud Run permissions to repository"
+    else
+      # Let Terraform create the repository
+      echo "# Repository doesn't exist - will be created by Terraform" >> terraform/bootstrap/terraform.tfvars
+    fi
   fi
 
   # Run the Firestore setup script
