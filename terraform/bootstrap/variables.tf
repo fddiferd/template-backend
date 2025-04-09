@@ -39,3 +39,9 @@ variable "repo_name" {
   type        = string
   default     = "fast-api"
 }
+
+variable "firebase_initialized" {
+  description = "Map of project keys to booleans indicating if Firebase is initialized"
+  type        = map(bool)
+  default     = {}
+}

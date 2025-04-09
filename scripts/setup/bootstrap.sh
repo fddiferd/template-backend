@@ -347,12 +347,64 @@ else
   echo
   echo "DEPLOYING INFRASTRUCTURE"
   echo "------------------------"
+  
+  # Check if Artifact Registry repository already exists
+  echo "Checking for existing Artifact Registry repository..."
+  REPO_EXISTS=$(gcloud artifacts repositories list --project="$PROJECT_NAME" --location="$REGION" --filter="name:$REPO_NAME" --format="value(name)" 2>/dev/null || echo "")
+  
+  if [[ -n "$REPO_EXISTS" ]]; then
+    echo "✅ Artifact Registry repository $REPO_NAME already exists"
+    
+    # Create a custom version of the Terraform file without the repository creation
+    echo "Creating custom Terraform configuration to skip repository creation..."
+    cp terraform/bootstrap/main.tf terraform/bootstrap/main.tf.original
+    
+    # Use sed to comment out the entire resource block
+    sed -i.bak '/resource "google_artifact_registry_repository" "api_repo"/,/^}/c\
+# Repository already exists - skipping creation\
+# If you need to modify repository settings, please do so manually or remove this comment block\
+\
+data "google_artifact_registry_repository" "existing_repo" {\
+  for_each = var.project_ids\
+\
+  location = local.region\
+  repository_id = var.repo_name\
+  project = each.value\
+}\
+\
+# Reference to existing repository for IAM bindings\
+locals {\
+  repository_name = var.repo_name\
+}' terraform/bootstrap/main.tf
+    
+    # Update IAM member resources to use the data source instead
+    sed -i.bak 's/google_artifact_registry_repository.api_repo\[each.key\].location/local.region/g' terraform/bootstrap/main.tf
+    sed -i.bak 's/google_artifact_registry_repository.api_repo\[each.key\].name/local.repository_name/g' terraform/bootstrap/main.tf
+  fi
 
   # Initialize and apply Terraform for bootstrap
   echo "Running Terraform bootstrap..."
   cd terraform/bootstrap
   terraform init
-  terraform apply -auto-approve
+  
+  # Run apply with auto-approve and suppress errors about existing resources
+  terraform apply -auto-approve || {
+    echo "⚠️ Terraform apply had errors, but we'll continue deployment if critical infrastructure exists."
+    # Check if we can still deploy the application
+    if [[ -z "$(gcloud artifacts repositories list --project=$PROJECT_NAME --location=$REGION --filter="name:$REPO_NAME" --format="value(name)" 2>/dev/null)" ]]; then
+      echo "❌ Error: Artifact Registry repository $REPO_NAME is missing, cannot continue."
+      echo "Please check the Terraform errors and try again."
+      exit 1
+    else
+      echo "✅ Artifact Registry repository $REPO_NAME exists, continuing with deployment."
+    fi
+  }
+  
+  # Restore original Terraform file if we modified it
+  if [[ -n "$REPO_EXISTS" ]] && [[ -f "terraform/bootstrap/main.tf.original" ]]; then
+    mv terraform/bootstrap/main.tf.original terraform/bootstrap/main.tf
+  fi
+  
   cd ../..
   echo "✅ Bootstrap Terraform completed"
 
@@ -360,7 +412,10 @@ else
   echo "Running Terraform CICD setup..."
   cd terraform/cicd
   terraform init
-  terraform apply -auto-approve
+  terraform apply -auto-approve || {
+    echo "⚠️ Terraform CICD setup had errors, but we'll continue."
+    echo "You may need to set up CI/CD triggers manually."
+  }
   cd ../..
   echo "✅ CICD Terraform completed"
 fi

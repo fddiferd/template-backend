@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "wedge-api"
+name = "template-backend"
 version = "0.1.0"
-description = "Wedge Golf Backend API"
-authors = ["Wedge Golf <info@wedgegolf.com>"]
+description = "Template Backend API"
+authors = ["FDDI <fddiferd@gmail.com>"]
 packages = [
     { include = "app" }
 ]

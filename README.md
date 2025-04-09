@@ -69,7 +69,6 @@ GCP_BILLING_ACCOUNT_ID=000000-000000  # Your GCP billing account ID
 DEV_SCHEMA_NAME=your-username                # Your unique developer name
 MODE=dev                                     # dev, staging, or prod
 SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
-NO_BILLING_REQUIRED=true                     # For team members joining existing projects
 ```
 
 ## Initial Setup
@@ -174,11 +173,18 @@ cd fast-api-app
    cp .env.example .env
    
    # Edit the .env file with your details
-   GCP_BILLING_ACCOUNT_ID=000000-000000  # Your GCP billing account ID
-   DEV_SCHEMA_NAME=your-username                # Your unique developer name
-   MODE=dev                                     # dev, staging, or prod
-   SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
+   # Find your billing account ID by running: gcloud billing accounts list
+   GCP_BILLING_ACCOUNT_ID=000000-000000  # Your GCP billing account ID (format: XXXXXX-XXXXXX-XXXXXX)
+   DEV_SCHEMA_NAME=your-username        # Your unique developer name
+   MODE=dev                             # dev, staging, or prod
+   SKIP_TERRAFORM=false                 # Set to true to skip Terraform deployment
    ```
+
+   **Important Note About Billing**: 
+   - The billing account ID is used to automatically link billing to your GCP projects during bootstrapping
+   - The ID must be in the correct format (e.g., `01224A-A47992-31AB42`)
+   - You must have billing administrator permissions for this account
+   - If joining an existing project that already has billing configured, you can set `SKIP_TERRAFORM=true` to skip this step
 
 2. Update the `config` file if needed (usually only for changing project defaults):
    ```bash
@@ -369,33 +375,46 @@ This project is fully compatible with macOS. The scripts use portable shell comm
 
 ### Common Issues
 
-1. **Missing GCP Billing Account ID**:
-   - Only required when creating new projects, not when joining existing ones
-   - If joining an existing project, just make sure you have the correct permissions
-   - Run `gcloud billing accounts list` to see available billing accounts if you need to create a new project
+1. **GCP Billing Account Configuration**:
+   - Billing account format must be correct (e.g., `01224A-A47992-31AB42`)
+   - Run `gcloud billing accounts list` to see available billing accounts
+   - If you get a 403 error during Terraform deployment, check that:
+     - The billing account ID format is correct
+     - You have billing administrator permissions
+     - Billing is properly enabled on the project
+   - If working with an existing project, you may want to set `SKIP_TERRAFORM=true` in your `.env`
 
-2. **Permission Issues**:
+2. **Terraform Resource Conflicts**:
+   - If you see `Error: Error creating Repository: googleapi: Error 409: the repository already exists`
+   - This happens when Terraform tries to create resources that already exist
+   - The bootstrap script now detects existing Artifact Registry repositories and adjusts the Terraform code
+   - If you encounter other similar errors, you can:
+     - Set `SKIP_TERRAFORM=true` in your `.env` file to skip Terraform entirely
+     - Run deployment directly with `./scripts/cicd/deploy.sh`
+     - For more complex cases, you might need to manually import existing resources with `terraform import`
+
+3. **Permission Issues**:
    - Run `gcloud auth login` to authenticate
    - Make sure you have the right permissions for the GCP project
    - Review the GCP Permissions section to ensure you have the necessary roles
 
-3. **Failed Tests**:
+4. **Failed Tests**:
    - Run `./scripts/test/run_tests.sh` to automatically install missing dependencies
 
-4. **CI/CD Triggers Not Working**:
+5. **CI/CD Triggers Not Working**:
    - Verify the triggers are properly configured in GCP console
    - Check that the branch patterns match your Git workflow
    - Use `./simulate` to test trigger configuration
 
-5. **Docker Build Issues on M1/M2 Macs**:
+6. **Docker Build Issues on M1/M2 Macs**:
    - Make sure to use `--platform linux/amd64` when building for Cloud Run
    - Docker Desktop must be running with Rosetta 2 emulation enabled
 
-6. **Project ID Format Issues**:
+7. **Project ID Format Issues**:
    - GCP project IDs must be lowercase alphanumeric with optional hyphens
    - Underscores are not allowed in project IDs
 
-7. **Active Project Mismatch**:
+8. **Active Project Mismatch**:
    - The scripts will detect if your active gcloud configuration uses a different project
    - You'll be given the option to switch your configuration to the target project
    - If you choose not to switch, all script commands will still work correctly (they use explicit project flags)
