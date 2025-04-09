@@ -161,6 +161,11 @@ resource "google_cloud_run_v2_service" "api_service" {
       }
 
       env {
+        name  = "PORT"
+        value = "${var.api_port}"
+      }
+
+      env {
         name  = "FIREBASE_CRED_PATH"
         value = "service_accounts/firebase-${var.environment}.json"
       }
@@ -170,6 +175,8 @@ resource "google_cloud_run_v2_service" "api_service" {
           cpu    = var.cpu_limit
           memory = var.memory_limit
         }
+        # Enable CPU boost for faster cold starts
+        cpu_idle = false
       }
 
       startup_probe {
@@ -256,6 +263,7 @@ resource "google_cloudbuild_trigger" "dev_trigger" {
     _SERVICE_NAME = var.service_name
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
+    _PROJECT_ENV  = var.environment
   }
   
   # Prevent creation issues by ignoring most attributes
@@ -294,6 +302,7 @@ resource "google_cloudbuild_trigger" "staging_trigger" {
     _SERVICE_NAME = var.service_name
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
+    _PROJECT_ENV  = var.environment
   }
   
   # Prevent creation issues by ignoring most attributes
@@ -332,6 +341,7 @@ resource "google_cloudbuild_trigger" "prod_trigger" {
     _SERVICE_NAME = var.service_name
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
+    _PROJECT_ENV  = var.environment
   }
   
   # Prevent creation issues by ignoring most attributes

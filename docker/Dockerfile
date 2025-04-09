@@ -16,12 +16,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8000
 
 # Set environment variables
 ENV HOST=0.0.0.0
-ENV PORT=8080
+ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
 
 # Start the application
-CMD ["uvicorn", "app.run:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "app.run:app", "--host", "0.0.0.0", "--port", "8000"]

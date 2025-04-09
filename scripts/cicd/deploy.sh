@@ -204,6 +204,9 @@ gcloud run deploy "$SERVICE_NAME" \
   --set-env-vars="$(IFS=,; echo "${ENV_VARS[*]}")" \
   --allow-unauthenticated \
   --service-account="${SERVICE_ACCOUNT}" \
+  --port=8000 \
+  --cpu-boost \
+  --timeout=300s \
   --quiet
 
 # Get deployed URL
