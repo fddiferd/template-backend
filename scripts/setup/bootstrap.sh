@@ -411,7 +411,31 @@ locals {\
   # Initialize and apply Terraform for CICD
   echo "Running Terraform CICD setup..."
   cd terraform/cicd
-  terraform init
+  
+  # Check for state issues related to wrong project references
+  TERRAFORM_INIT_OUTPUT=$(terraform init 2>&1)
+  
+  # Check for project reference issues in the state files
+  WRONG_PROJECT_REFERENCE=$(terraform state list 2>/dev/null | grep "wedge-golf" || echo "")
+  
+  if [[ -n "$WRONG_PROJECT_REFERENCE" ]]; then
+    echo "⚠️ Found references to 'wedge-golf' project in Terraform state"
+    echo "   This can cause permission errors when deploying"
+    echo "   Resetting Terraform state to fix references..."
+    
+    # Backup the state file
+    if [[ -f "terraform.tfstate" ]]; then
+      cp terraform.tfstate terraform.tfstate.backup.$(date +%s)
+    fi
+    
+    # Remove the state file to start fresh
+    rm -f terraform.tfstate terraform.tfstate.backup
+    terraform init
+  else
+    echo "✅ No state conflicts detected"
+  fi
+  
+  # Apply the CICD Terraform configuration
   terraform apply -auto-approve || {
     echo "⚠️ Terraform CICD setup had errors, but we'll continue."
     echo "You may need to set up CI/CD triggers manually."

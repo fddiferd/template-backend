@@ -393,32 +393,105 @@ This project is fully compatible with macOS. The scripts use portable shell comm
      - Run deployment directly with `./scripts/cicd/deploy.sh`
      - For more complex cases, you might need to manually import existing resources with `terraform import`
 
-3. **Permission Issues**:
+3. **CICD Terraform Errors**:
+   - If you see errors with the CICD Terraform configuration referencing other projects (like "wedge-golf-dev")
+   - This happens when the Terraform state has references to resources in other projects
+   - To fix this:
+     1. Delete the Terraform state: `cd terraform/cicd && rm -f terraform.tfstate terraform.tfstate.backup`
+     2. Re-run the bootstrap with `./scripts/setup/bootstrap.sh`
+     3. If you still encounter errors, run the deployment directly with `./scripts/cicd/deploy.sh`
+   - The deployment script will work even if the CICD Terraform has errors
+
+4. **Permission Issues**:
    - Run `gcloud auth login` to authenticate
    - Make sure you have the right permissions for the GCP project
    - Review the GCP Permissions section to ensure you have the necessary roles
 
-4. **Failed Tests**:
+5. **Failed Tests**:
    - Run `./scripts/test/run_tests.sh` to automatically install missing dependencies
 
-5. **CI/CD Triggers Not Working**:
+6. **CI/CD Triggers Not Working**:
    - Verify the triggers are properly configured in GCP console
    - Check that the branch patterns match your Git workflow
    - Use `./simulate` to test trigger configuration
 
-6. **Docker Build Issues on M1/M2 Macs**:
+7. **Docker Build Issues on M1/M2 Macs**:
    - Make sure to use `--platform linux/amd64` when building for Cloud Run
    - Docker Desktop must be running with Rosetta 2 emulation enabled
 
-7. **Project ID Format Issues**:
+8. **Project ID Format Issues**:
    - GCP project IDs must be lowercase alphanumeric with optional hyphens
    - Underscores are not allowed in project IDs
 
-8. **Active Project Mismatch**:
+9. **Active Project Mismatch**:
    - The scripts will detect if your active gcloud configuration uses a different project
    - You'll be given the option to switch your configuration to the target project
    - If you choose not to switch, all script commands will still work correctly (they use explicit project flags)
    - But be careful when running manual gcloud commands as they'll use your active configuration
+
+### Manual Terraform Operations
+
+For most users, you won't need to run Terraform commands directly as the bootstrap and deploy scripts handle this for you. However, in certain troubleshooting scenarios, you might need to:
+
+**Reset Terraform State (when it references wrong projects):**
+```bash
+# For Bootstrap Terraform
+cd terraform/bootstrap
+rm -f terraform.tfstate terraform.tfstate.backup
+terraform init
+terraform apply
+
+# For CICD Terraform
+cd terraform/cicd
+rm -f terraform.tfstate terraform.tfstate.backup
+terraform init
+terraform apply
+```
+
+**Import Existing Resources to Terraform State:**
+```bash
+# Example for importing an existing Artifact Registry
+cd terraform/bootstrap
+terraform import "google_artifact_registry_repository.api_repo[\"dev\"]" \
+  "projects/PROJECT_NAME/locations/REGION/repositories/REPO_NAME"
+
+# Example for importing an existing Cloud Run service
+cd terraform/cicd
+terraform import google_cloud_run_v2_service.api_service \
+  "projects/PROJECT_NAME/locations/REGION/services/SERVICE_NAME"
+```
+
+### Git Workflow
+
+**Pull Changes Into Main:**
+```bash
+# First checkout the main branch
+git checkout main
+
+# Pull the latest changes from the remote main
+git pull origin main
+
+# To merge a feature branch into main:
+git merge feature/your-branch-name
+
+# Push the changes to remote main
+git push origin main
+```
+
+**Creating and Using Feature Branches:**
+```bash
+# Create a new feature branch
+git checkout -b feature/new-feature
+
+# Make your changes, then commit
+git add .
+git commit -m "Add new feature"
+
+# Push to remote
+git push origin feature/new-feature
+
+# When ready, merge to main as shown above
+```
 
 ### Useful Commands
 

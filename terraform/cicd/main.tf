@@ -80,12 +80,23 @@ resource "google_artifact_registry_repository" "docker_repo" {
   location      = local.region
   repository_id = var.repo_name
   format        = "DOCKER"
+  
+  # This prevents errors when the repository already exists
+  lifecycle {
+    ignore_changes = [description]
+    prevent_destroy = true
+  }
 }
 
 resource "google_cloud_run_v2_service" "api_service" {
   name     = var.service_name
   location = local.region
   deletion_protection = false
+
+  # This prevents errors when the service already exists
+  lifecycle {
+    ignore_changes = [template, traffic]
+  }
 
   template {
     containers {
