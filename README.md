@@ -53,16 +53,24 @@ region: str = "us-central1"
 
 ### Developer Environment
 
+Create your `.env` file based on the provided `.env.example` template:
+
+```bash
+# Copy the example file and customize with your own values
+cp .env.example .env
+```
+
 The `.env` file contains developer-specific settings:
 
 ```
-GCP_BILLING_ACCOUNT_ID=your-billing-account-id
-DEV_SCHEMA_NAME=your-username
-MODE=dev  # dev, staging, or prod
-SKIP_TERRAFORM=true  # Skip Terraform deployment (optional)
+GCP_BILLING_ACCOUNT_ID=000000-000000-000000  # Your GCP billing account ID
+DEV_SCHEMA_NAME=your-username                # Your unique developer name
+MODE=dev                                     # dev, staging, or prod
+SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
+NO_BILLING_REQUIRED=true                     # For team members joining existing projects
 ```
 
-## Getting Started
+## Initial Setup
 
 ### Prerequisites
 
@@ -95,6 +103,27 @@ Before starting, ensure you have the following:
 
 4. Docker installed (for local testing and builds)
 
+### GCP Permissions
+
+Depending on your role in the project, you'll need different GCP permissions:
+
+#### For Initial Project Creation
+
+If you're setting up a new project, you need:
+- Organization or Folder Admin access (to create projects)
+- Billing Account Administrator (to link billing account)
+- Owner/Editor on the project (automatically granted as creator)
+
+#### For Team Members Joining an Existing Project
+
+If you're joining an existing project, you need:
+- Artifact Registry Writer
+- Cloud Run Developer
+- Storage Object Admin
+- Cloud Build Editor
+
+Team members joining an existing project don't need to provide a billing account ID. Set `NO_BILLING_REQUIRED=true` in your `.env` file to skip the billing account check.
+
 ### Step 1: Clone the Repository
 
 ```bash
@@ -104,13 +133,17 @@ cd fast-api-app
 
 ### Step 2: Configure Your Environment
 
-1. Set up your `.env` file with your specific settings:
+1. Create your `.env` file from the example template:
    ```bash
+   # Copy the example file
+   cp .env.example .env
+   
    # Edit the .env file with your details
    GCP_BILLING_ACCOUNT_ID=000000-000000-000000  # Your GCP billing account ID
    DEV_SCHEMA_NAME=your-username                # Your unique developer name
    MODE=dev                                     # dev, staging, or prod
-   SKIP_TERRAFORM=true                          # Optional: Skip Terraform deployment
+   SKIP_TERRAFORM=true                          # Skip Terraform deployment (optional)
+   NO_BILLING_REQUIRED=true                     # For team members joining existing projects
    ```
 
 2. Update the `config` file if needed (usually only for changing project defaults):
@@ -136,24 +169,28 @@ curl -sSL https://install.python-poetry.org | python3 -
 poetry install
 ```
 
-### Step 4: Verify the Library
+## Getting Started
+
+### Step 1: Verify the Library
 
 Run the verification script to ensure everything is properly set up:
 
 ```bash
-./scripts/test/verify_library.sh
-# or using the setup script
+# Using the wrapper script
+
 ./setup.sh
 ```
+reference to ```./scripts/test/verify_library.sh```
 
 This will check that all necessary files exist and run tests to verify the application works properly.
 
-### Step 5: Bootstrap Your GCP Project
+### Step 2: Bootstrap Your GCP Project
 
 The bootstrap script creates a new GCP project with all the necessary services enabled:
 
 ```bash
 # Using the wrapper script
+
 ./bootstrap
 ```
 reference to ```./scripts/setup/bootstrap.sh```
@@ -166,7 +203,7 @@ This will:
 5. Set up IAM permissions (if Terraform is enabled)
 6. Configure Cloud Build triggers (if Terraform is enabled)
 
-### Step 6: Deploy the Application
+### Step 3: Deploy the Application
 
 After bootstrapping, you can deploy the application:
 
@@ -299,13 +336,15 @@ This project is fully compatible with macOS. The scripts use portable shell comm
 ### Common Issues
 
 1. **Missing GCP Billing Account ID**:
-   - Ensure your billing account ID is correct in `.env`
+   - Ensure your billing account ID is correct in `.env` 
+   - If you're joining an existing project, set `NO_BILLING_REQUIRED=true` in your `.env` file
    - Verify you have billing admin permissions
    - Run `gcloud billing accounts list` to see available billing accounts
 
 2. **Permission Issues**:
    - Run `gcloud auth login` to authenticate
    - Make sure you have the right permissions for the GCP project
+   - Review the GCP Permissions section to ensure you have the necessary roles
 
 3. **Failed Tests**:
    - Run `./scripts/test/run_tests.sh` to automatically install missing dependencies

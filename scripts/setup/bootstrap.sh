@@ -43,8 +43,11 @@ if [ -z "$PROJECT_ID" ]; then
   PROJECT_ID="$GCP_PROJECT_ID"
 fi
 
-if [ -z "$GCP_BILLING_ACCOUNT_ID" ]; then
+# Only check for billing account ID if NO_BILLING_REQUIRED is not set to true
+if [ "${NO_BILLING_REQUIRED:-false}" != "true" ] && [ -z "$GCP_BILLING_ACCOUNT_ID" ]; then
   echo "❌ Error: GCP_BILLING_ACCOUNT_ID is not set in .env"
+  echo "  If you're joining an existing project and don't need to create a new project,"
+  echo "  set NO_BILLING_REQUIRED=true in your .env file."
   exit 1
 fi
 
@@ -99,6 +102,15 @@ if gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
     exit 1
   fi
 else
+  # Skip project creation if NO_BILLING_REQUIRED is true
+  if [ "${NO_BILLING_REQUIRED:-false}" == "true" ]; then
+    echo "❌ Error: Project $PROJECT_NAME doesn't exist and NO_BILLING_REQUIRED is set."
+    echo "  You need to either:"
+    echo "  1. Set NO_BILLING_REQUIRED=false and provide GCP_BILLING_ACCOUNT_ID to create a new project"
+    echo "  2. Verify the correct project ID format for an existing project"
+    exit 1
+  fi
+  
   echo "Project doesn't exist. Checking billing account..."
   
   # Check if billing account exists and we have access to it
