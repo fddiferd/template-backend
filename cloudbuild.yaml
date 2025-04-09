@@ -28,7 +28,7 @@ steps:
       - '--set-env-vars'
       - 'ENVIRONMENT=dev,FIREBASE_CRED_PATH=service_accounts/firebase-dev.json'
       - '--service-account'
-      - 'cloudrun-$PROJECT_ENV-sa@$PROJECT_ID.iam.gserviceaccount.com'
+      - 'cloudrun-${_PROJECT_ENV}-sa@$PROJECT_ID.iam.gserviceaccount.com'
   
 # Tag the image for easier reference
 images:
