@@ -110,6 +110,20 @@ resource "google_artifact_registry_repository_iam_member" "cloudrun_repo_access"
   depends_on = [data.google_artifact_registry_repository.existing_repo]
 }
 
+# Allow service account to act as itself (fixing iam.serviceAccounts.actAs permission issue)
+resource "google_service_account_iam_member" "cloudrun_self_access" {
+  service_account_id = data.google_service_account.cloudrun_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${data.google_service_account.cloudrun_sa.email}"
+}
+
+# Allow Cloud Build to act as the Cloud Run service account
+resource "google_service_account_iam_member" "cloudbuild_access" {
+  service_account_id = data.google_service_account.cloudrun_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
+}
+
 resource "google_cloud_run_v2_service" "api_service" {
   count    = var.skip_resource_creation ? 0 : 1
   name     = var.service_name

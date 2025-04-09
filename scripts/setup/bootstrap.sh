@@ -446,6 +446,22 @@ else
   # Admin role is already in Terraform but add it here too for immediate effect
   gcloud projects add-iam-policy-binding $PROJECT_NAME --member="serviceAccount:${SA_EMAIL}" --role="roles/run.admin" --condition=None
   
+  # Add serviceAccountUser permissions to allow the service account to act as itself
+  echo "Adding serviceAccountUser permissions for service accounts..."
+  # Allow the service account to act as itself
+  gcloud iam service-accounts add-iam-policy-binding $SA_EMAIL \
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="roles/iam.serviceAccountUser" \
+    --project=$PROJECT_NAME
+    
+  # Allow the Cloud Build service account to act as the Cloud Run service account
+  PROJECT_NUMBER=$(gcloud projects describe $PROJECT_NAME --format="value(projectNumber)")
+  CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+  gcloud iam service-accounts add-iam-policy-binding $SA_EMAIL \
+    --member="serviceAccount:${CLOUDBUILD_SA}" \
+    --role="roles/iam.serviceAccountUser" \
+    --project=$PROJECT_NAME
+  
   # Ensure proper permissions for Cloud Build
   echo "Ensuring proper permissions for Cloud Build service account..."
   CLOUDBUILD_SA=$(gcloud projects get-iam-policy $PROJECT_NAME --format="value(bindings.members)" | grep cloudbuild.gserviceaccount || echo "")
