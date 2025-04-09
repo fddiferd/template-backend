@@ -528,3 +528,90 @@ git push origin feature/new-feature
 ## License
 
 MIT
+
+# Firestore Configuration
+
+This project now supports both Firestore Native Mode and Datastore Mode with improved configuration and detection:
+
+```bash
+# The bootstrap process will automatically:
+# 1. Detect existing Firestore databases
+# 2. Create a new database in Native Mode if none exists
+# 3. Skip database creation when one already exists
+```
+
+### Firestore Native Mode Support
+
+By default, the project now sets up Firestore in **Native Mode**, which enables:
+
+- Document-oriented database structure
+- Real-time updates
+- Full Firebase SDK compatibility 
+- Better support for complex data modeling
+
+### Testing Firestore Integration
+
+Once deployed, you can test the Firestore integration with the following commands:
+
+```bash
+# Create a customer
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"name": "Test Customer", "email": "test@example.com"}' \
+  https://[YOUR-SERVICE-URL]/api/customer
+
+# Retrieve a customer
+curl -s https://[YOUR-SERVICE-URL]/api/customer/[CUSTOMER-ID]
+
+# List all customers
+curl -s https://[YOUR-SERVICE-URL]/api/customers
+
+# Update a customer
+curl -X PUT -H "Content-Type: application/json" \
+  -d '{"name": "Updated Customer", "phone": "555-1234"}' \
+  https://[YOUR-SERVICE-URL]/api/customer/[CUSTOMER-ID]
+```
+
+## GitHub Integration
+
+### Improved GitHub Connection Detection
+
+The bootstrap process now has improved GitHub connection detection:
+
+1. Automatically detects when GitHub is already connected to Cloud Build
+2. Skips unnecessary GitHub connection prompts when already set up
+3. Provides a flag to explicitly confirm GitHub connection status
+
+Add the following to your `.env` file to explicitly confirm GitHub is connected:
+
+```
+# Add this when your GitHub is already connected to Cloud Build
+GITHUB_ALREADY_CONNECTED=true
+```
+
+### Handling Existing Resources
+
+The deployment process has been enhanced to handle existing resources:
+
+1. Detects when resources already exist to prevent recreation errors
+2. Properly manages Terraform state for existing Cloud Run services
+3. Allows deployment to continue even when GitHub trigger creation fails
+4. Implements proper error handling to prevent stopping the deployment process
+
+## Troubleshooting
+
+### GitHub Connection Issues
+
+If you encounter GitHub connection issues:
+
+1. Check if your GitHub repository is properly connected in the GCP console:
+   - Go to: https://console.cloud.google.com/cloud-build/triggers
+   - Verify that GitHub is listed as a connected repository
+
+2. If GitHub is connected but the bootstrap process doesn't detect it:
+   - Add `GITHUB_ALREADY_CONNECTED=true` to your `.env` file
+   - This will skip GitHub connection detection and proceed with deployment
+
+3. If you need to manually connect GitHub:
+   - Go to: https://console.cloud.google.com/cloud-build/triggers/connect
+   - Select your GitHub repository
+   - Install the Cloud Build GitHub app if needed

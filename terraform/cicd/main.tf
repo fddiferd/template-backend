@@ -17,6 +17,12 @@ locals {
   region = var.region
 }
 
+# Data source for existing service account - prevents recreation errors
+data "google_service_account" "cloudrun_sa" {
+  account_id = "cloudrun-${var.environment}-sa"
+  project    = var.project_id
+}
+
 # IAM bindings for the user account
 resource "google_project_iam_member" "user_roles" {
   for_each = toset([
@@ -25,11 +31,17 @@ resource "google_project_iam_member" "user_roles" {
     "roles/run.admin",
     "roles/storage.admin",
     "roles/iam.serviceAccountUser",
-    "roles/logging.logWriter"
+    "roles/logging.logWriter",
+    "roles/firebase.admin"
   ])
   project = var.project_id
   role    = each.value
   member  = "user:${var.user_email}"
+}
+
+# Get project information
+data "google_project" "project" {
+  project_id = var.project_id
 }
 
 # IAM bindings for Cloud Build service account
@@ -40,63 +52,52 @@ resource "google_project_iam_member" "cloudbuild_roles" {
     "roles/artifactregistry.writer",
     "roles/storage.admin",
     "roles/logging.logWriter",
-    "roles/run.admin"
+    "roles/run.admin",
+    "roles/firebase.admin"
   ])
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
 }
 
-# IAM bindings for Compute service account
-resource "google_project_iam_member" "compute_roles" {
+# IAM bindings for Cloud Run service account
+resource "google_project_iam_member" "cloudrun_roles" {
   for_each = toset([
-    "roles/artifactregistry.writer",
-    "roles/storage.admin",
-    "roles/logging.logWriter"
+    "roles/run.admin", 
+    "roles/storage.admin", 
+    "roles/artifactregistry.writer", 
+    "roles/datastore.user", 
+    "roles/firebase.admin"
   ])
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${data.google_project.project.number}-compute@developer.gserviceaccount.com"
+  member  = "serviceAccount:${data.google_service_account.cloudrun_sa.email}"
 }
 
-# Get project information
-data "google_project" "project" {
-  project_id = var.project_id
-}
-
-resource "google_service_account" "cloudrun_sa" {
-  account_id   = "cloudrun-${var.environment}-sa"
-  display_name = "Cloud Run Service Account ${var.environment}"
-}
-
-resource "google_project_iam_member" "cloudrun_roles" {
-  for_each = toset(["roles/run.admin", "roles/storage.admin", "roles/artifactregistry.writer", "roles/datastore.user", "roles/firebase.admin"])
-  project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.cloudrun_sa.email}"
-}
-
-resource "google_artifact_registry_repository" "docker_repo" {
+# Data source for existing artifact registry
+data "google_artifact_registry_repository" "existing_repo" {
   location      = local.region
   repository_id = var.repo_name
-  format        = "DOCKER"
-  
-  # This prevents errors when the repository already exists
-  lifecycle {
-    ignore_changes = [description]
-    prevent_destroy = true
-  }
+  project       = var.project_id
 }
 
 resource "google_cloud_run_v2_service" "api_service" {
+  count    = var.skip_resource_creation ? 0 : 1
   name     = var.service_name
   location = local.region
   deletion_protection = false
 
   # This prevents errors when the service already exists
   lifecycle {
-    ignore_changes = [template, traffic]
+    ignore_changes = [template, traffic, annotations, labels]
+    create_before_destroy = true
   }
+
+  # Import statement - this will be commented at first use
+  # import {
+  #   # Import ID format: projects/PROJECT_ID/locations/REGION/services/SERVICE_NAME
+  #   id = "projects/${var.project_id}/locations/${local.region}/services/${var.service_name}"
+  # }
 
   template {
     containers {
@@ -146,26 +147,59 @@ resource "google_cloud_run_v2_service" "api_service" {
 
     max_instance_request_concurrency = var.request_concurrency
     timeout = "300s"
-    service_account = google_service_account.cloudrun_sa.email
+    service_account = data.google_service_account.cloudrun_sa.email
   }
 }
 
 resource "google_cloud_run_service_iam_member" "public_access" {
-  location = google_cloud_run_v2_service.api_service.location
+  count    = var.skip_resource_creation ? 0 : 1
+  location = var.skip_resource_creation ? local.region : google_cloud_run_v2_service.api_service[0].location
   project  = var.project_id
-  service  = google_cloud_run_v2_service.api_service.name
+  service  = var.skip_resource_creation ? var.service_name : google_cloud_run_v2_service.api_service[0].name
   role     = "roles/run.invoker"
   member   = "allUsers"
+  
+  # depends_on cannot use conditional expressions
+  depends_on = [
+    google_cloud_run_v2_service.api_service
+  ]
 }
 
-# Cloud Build Triggers
+# For connecting GitHub to Cloud Build, follow these steps:
+# 1. Go to: https://console.cloud.google.com/cloud-build/triggers/connect
+# 2. Connect your GitHub repository
+# 3. Follow the instructions to install the Cloud Build GitHub app
+# 4. Then the triggers will work properly
+# 
+# This step cannot be fully automated with Terraform and requires manual setup once.
+
+# Data source to check if GitHub is already connected
+# This is best-effort - sometimes this won't be detectable from Terraform
+# If GitHub connection issues persist, manually connect in the Google Cloud Console
+
 # Development trigger (runs on push to any branch except main)
 resource "google_cloudbuild_trigger" "dev_trigger" {
-  count = var.environment == "dev" ? 1 : 0
+  count = (var.environment == "dev" && !var.skip_resource_creation) ? 1 : 0
   
-  name        = "${var.project_id}-dev"
+  # Use a simple name pattern to avoid errors
+  project  = var.project_id
+  name     = "dev-branch-trigger" 
   description = "Build and deploy on any branch except main"
   
+  # Use the YAML from the root directory
+  filename = "cloudbuild.yaml"
+  
+  # Use included_files to only trigger when app code changes
+  included_files = [
+    "app/**",
+    "docker/**", 
+    "config",
+    "cloudbuild.yaml",
+    "pyproject.toml"
+  ]
+  
+  # GitHub configuration - note this requires manual GitHub connection first
+  # See: https://console.cloud.google.com/cloud-build/triggers/connect
   github {
     owner = var.github_owner
     name  = var.github_repo
@@ -174,18 +208,31 @@ resource "google_cloudbuild_trigger" "dev_trigger" {
     }
   }
   
-  filename = "cloudbuild.yaml"
-  
+  # Use explicit substitutions
   substitutions = {
     _SERVICE_NAME = var.service_name
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
   }
+  
+  # Prevent creation issues by ignoring most attributes
+  lifecycle {
+    ignore_changes = [
+      description,
+      filename,
+      github,
+      included_files,
+      substitutions,
+      trigger_template,
+      name
+    ]
+    create_before_destroy = true
+  }
 }
 
 # Staging trigger (runs on push to main)
 resource "google_cloudbuild_trigger" "staging_trigger" {
-  count = var.environment == "staging" ? 1 : 0
+  count = (var.environment == "staging" && !var.skip_resource_creation) ? 1 : 0
   
   name        = "${var.project_id}-staging"
   description = "Build and deploy on push to main branch"
@@ -205,11 +252,25 @@ resource "google_cloudbuild_trigger" "staging_trigger" {
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
   }
+  
+  # Prevent creation issues by ignoring most attributes
+  lifecycle {
+    ignore_changes = [
+      description,
+      filename,
+      github,
+      included_files,
+      substitutions,
+      trigger_template,
+      name
+    ]
+    create_before_destroy = true
+  }
 }
 
 # Production trigger (runs on tags starting with v)
 resource "google_cloudbuild_trigger" "prod_trigger" {
-  count = var.environment == "prod" ? 1 : 0
+  count = (var.environment == "prod" && !var.skip_resource_creation) ? 1 : 0
   
   name        = "${var.project_id}-prod"
   description = "Build and deploy on tags starting with v"
@@ -228,5 +289,19 @@ resource "google_cloudbuild_trigger" "prod_trigger" {
     _SERVICE_NAME = var.service_name
     _REPO_NAME    = var.repo_name
     _REGION       = local.region
+  }
+  
+  # Prevent creation issues by ignoring most attributes
+  lifecycle {
+    ignore_changes = [
+      description,
+      filename,
+      github,
+      included_files,
+      substitutions,
+      trigger_template,
+      name
+    ]
+    create_before_destroy = true
   }
 }

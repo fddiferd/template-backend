@@ -1,0 +1,365 @@
+{
+  "version": 4,
+  "terraform_version": "1.11.1",
+  "serial": 16,
+  "lineage": "120b9d8f-4b54-6be3-0870-2c7f23b17e82",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "data",
+      "type": "google_artifact_registry_repository",
+      "name": "existing_repo",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "cleanup_policies": [],
+            "cleanup_policy_dry_run": false,
+            "create_time": "2025-04-09T06:53:04.165091Z",
+            "description": "Docker repository for template-api",
+            "docker_config": [],
+            "effective_labels": {},
+            "format": "DOCKER",
+            "id": "projects/template-backend-dev-fddiferd/locations/us-central1/repositories/template-backend",
+            "kms_key_name": "",
+            "labels": {},
+            "location": "us-central1",
+            "maven_config": [],
+            "mode": "STANDARD_REPOSITORY",
+            "name": "template-backend",
+            "project": "template-backend-dev-fddiferd",
+            "remote_repository_config": [],
+            "repository_id": "template-backend",
+            "terraform_labels": {},
+            "update_time": "2025-04-09T16:16:13.775745Z",
+            "virtual_repository_config": [],
+            "vulnerability_scanning_config": [
+              {
+                "enablement_config": "",
+                "enablement_state": "SCANNING_DISABLED",
+                "enablement_state_reason": "API containerscanning.googleapis.com is not enabled."
+              }
+            ]
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "google_project",
+      "name": "project",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "auto_create_network": null,
+            "billing_account": "01224A-A47992-31AB42",
+            "deletion_policy": "PREVENT",
+            "effective_labels": {
+              "firebase": "enabled",
+              "firebase-core": "disabled"
+            },
+            "folder_id": null,
+            "id": "projects/template-backend-dev-fddiferd",
+            "labels": {
+              "firebase": "enabled",
+              "firebase-core": "disabled"
+            },
+            "name": "template-backend-dev-fddiferd",
+            "number": "18222799714",
+            "org_id": null,
+            "project_id": "template-backend-dev-fddiferd",
+            "tags": null,
+            "terraform_labels": {
+              "firebase": "enabled",
+              "firebase-core": "disabled"
+            }
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "google_service_account",
+      "name": "cloudrun_sa",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "account_id": "cloudrun-dev-sa",
+            "disabled": false,
+            "display_name": "Cloud Run Service Account dev",
+            "email": "cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "id": "projects/template-backend-dev-fddiferd/serviceAccounts/cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "name": "projects/template-backend-dev-fddiferd/serviceAccounts/cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "unique_id": "109476729213066410788"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloudbuild_trigger",
+      "name": "prod_trigger",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": []
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloudbuild_trigger",
+      "name": "staging_trigger",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": []
+    },
+    {
+      "mode": "managed",
+      "type": "google_project_iam_member",
+      "name": "cloudbuild_roles",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "index_key": "roles/artifactregistry.writer",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtUgGAY=",
+            "id": "template-backend-dev-fddiferd/roles/artifactregistry.writer/serviceAccount:18222799714@cloudbuild.gserviceaccount.com",
+            "member": "serviceAccount:18222799714@cloudbuild.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/artifactregistry.writer"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_project.project"
+          ]
+        },
+        {
+          "index_key": "roles/storage.objectViewer",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtUgGAY=",
+            "id": "template-backend-dev-fddiferd/roles/storage.objectViewer/serviceAccount:18222799714@cloudbuild.gserviceaccount.com",
+            "member": "serviceAccount:18222799714@cloudbuild.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/storage.objectViewer"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_project.project"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_project_iam_member",
+      "name": "cloudrun_roles",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "index_key": "roles/artifactregistry.writer",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtUgGAY=",
+            "id": "template-backend-dev-fddiferd/roles/artifactregistry.writer/serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/artifactregistry.writer"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_service_account.cloudrun_sa"
+          ]
+        },
+        {
+          "index_key": "roles/datastore.user",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/datastore.user/serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/datastore.user"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_service_account.cloudrun_sa"
+          ]
+        },
+        {
+          "index_key": "roles/firebase.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/firebase.admin/serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/firebase.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_service_account.cloudrun_sa"
+          ]
+        },
+        {
+          "index_key": "roles/run.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/run.admin/serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/run.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_service_account.cloudrun_sa"
+          ]
+        },
+        {
+          "index_key": "roles/storage.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/storage.admin/serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "member": "serviceAccount:cloudrun-dev-sa@template-backend-dev-fddiferd.iam.gserviceaccount.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/storage.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "data.google_service_account.cloudrun_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_project_iam_member",
+      "name": "user_roles",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "index_key": "roles/artifactregistry.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/artifactregistry.admin/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/artifactregistry.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/firebase.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/firebase.admin/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/firebase.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/iam.serviceAccountAdmin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/iam.serviceAccountAdmin/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/iam.serviceAccountAdmin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/iam.serviceAccountUser",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/iam.serviceAccountUser/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/iam.serviceAccountUser"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/logging.logWriter",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/logging.logWriter/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/logging.logWriter"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/run.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtUgGAY=",
+            "id": "template-backend-dev-fddiferd/roles/run.admin/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/run.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        },
+        {
+          "index_key": "roles/storage.admin",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwYyWtSfX/c=",
+            "id": "template-backend-dev-fddiferd/roles/storage.admin/user:fddiferd@gmail.com",
+            "member": "user:fddiferd@gmail.com",
+            "project": "template-backend-dev-fddiferd",
+            "role": "roles/storage.admin"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}

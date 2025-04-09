@@ -45,3 +45,21 @@ variable "firebase_initialized" {
   type        = map(bool)
   default     = {}
 }
+
+variable "create_firestore_db" {
+  description = "Flag to determine if Firestore database should be created by Terraform"
+  type        = bool
+  default     = false
+}
+
+variable "firestore_mode" {
+  description = "The mode for Firestore database (FIRESTORE_NATIVE or DATASTORE_MODE)"
+  type        = string
+  default     = "FIRESTORE_NATIVE"
+}
+
+variable "skip_billing_setup" {
+  description = "Flag to skip billing setup and other operations that are only needed for new projects"
+  type        = bool
+  default     = false
+}

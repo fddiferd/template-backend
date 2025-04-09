@@ -1,9 +1,20 @@
 # FastAPI entry point
 import os
 import re
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel
+
+# Import Firebase utilities
+from app.firebase_utils import (
+    create_customer, 
+    get_customer, 
+    update_customer, 
+    delete_customer, 
+    list_customers
+)
 
 # Read values from config file
 def get_config_value(key, default=None):
@@ -81,6 +92,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Define Pydantic models
+class CustomerBase(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    address: Optional[Dict[str, Any]] = None
+    
+class CustomerCreate(CustomerBase):
+    pass
+    
+class CustomerUpdate(CustomerBase):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    
+class CustomerResponse(CustomerBase):
+    id: str
+    
+    class Config:
+        orm_mode = True
+
 @app.get("/")
 async def root():
     return {
@@ -103,4 +134,142 @@ async def status():
         "environment": environment,
         "version": "0.1.0",
         "unauthenticated": True
+    }
+
+# Customer API routes
+@app.post("/api/customer", response_model=Dict[str, Any])
+async def create_customer_endpoint(customer: CustomerCreate = Body(...)):
+    """Create a new customer in Firestore"""
+    customer_id = create_customer(customer.dict())
+    if not customer_id:
+        raise HTTPException(status_code=500, detail="Failed to create customer")
+    
+    # Get the created customer
+    customer_data = get_customer(customer_id)
+    if not customer_data:
+        raise HTTPException(status_code=500, detail="Customer created but couldn't retrieve it")
+    
+    # Add ID to the customer data safely
+    result = {}
+    if customer_data and isinstance(customer_data, dict):
+        result = dict(customer_data)
+    result["id"] = customer_id
+    
+    return {
+        "success": True,
+        "id": customer_id,
+        "customer": result
+    }
+
+@app.post("/api/customer/test", response_model=Dict[str, Any])
+async def create_test_customer():
+    """Create a test customer in Firestore"""
+    test_customer = {
+        "name": "Test Customer",
+        "email": "test@example.com",
+        "phone": "555-123-4567",
+        "address": {
+            "street": "123 Test St",
+            "city": "Test City",
+            "state": "TS",
+            "zip": "12345"
+        }
+    }
+    
+    customer_id = create_customer(test_customer)
+    if not customer_id:
+        raise HTTPException(status_code=500, detail="Failed to create test customer")
+    
+    # Get the created customer
+    customer_data = get_customer(customer_id)
+    if not customer_data:
+        raise HTTPException(status_code=500, detail="Test customer created but couldn't retrieve it")
+    
+    # Add ID to the customer data safely
+    result = {}
+    if customer_data and isinstance(customer_data, dict):
+        result = dict(customer_data)
+    result["id"] = customer_id
+    
+    return {
+        "success": True,
+        "id": customer_id,
+        "customer": result
+    }
+
+@app.get("/api/customer/{customer_id}", response_model=Dict[str, Any])
+async def get_customer_endpoint(customer_id: str):
+    """Get a customer by ID"""
+    customer_data = get_customer(customer_id)
+    if not customer_data:
+        raise HTTPException(status_code=404, detail=f"Customer with ID {customer_id} not found")
+    
+    # Add ID to the customer data safely
+    result = {}
+    if isinstance(customer_data, dict):
+        result = dict(customer_data)
+    result["id"] = customer_id
+    
+    return {
+        "success": True,
+        "customer": result
+    }
+
+@app.get("/api/customers", response_model=Dict[str, Any])
+async def list_customers_endpoint(limit: int = 100):
+    """List all customers"""
+    customers_data = list_customers(limit)
+    
+    return {
+        "success": True,
+        "count": len(customers_data),
+        "customers": customers_data
+    }
+
+@app.put("/api/customer/{customer_id}", response_model=Dict[str, Any])
+async def update_customer_endpoint(customer_id: str, customer_update: CustomerUpdate = Body(...)):
+    """Update a customer"""
+    # First check if customer exists
+    existing_customer = get_customer(customer_id)
+    if not existing_customer:
+        raise HTTPException(status_code=404, detail=f"Customer with ID {customer_id} not found")
+    
+    # Filter out None values
+    update_data = {k: v for k, v in customer_update.dict().items() if v is not None}
+    
+    # Update the customer
+    success = update_customer(customer_id, update_data)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update customer")
+    
+    # Get updated customer
+    updated_customer = get_customer(customer_id)
+    
+    # Add ID to the customer data safely
+    result = {}
+    if updated_customer and isinstance(updated_customer, dict):
+        result = dict(updated_customer)
+    result["id"] = customer_id
+    
+    return {
+        "success": True,
+        "customer": result
+    }
+
+@app.delete("/api/customer/{customer_id}", response_model=Dict[str, Any])
+async def delete_customer_endpoint(customer_id: str):
+    """Delete a customer"""
+    # First check if customer exists
+    existing_customer = get_customer(customer_id)
+    if not existing_customer:
+        raise HTTPException(status_code=404, detail=f"Customer with ID {customer_id} not found")
+    
+    # Delete the customer
+    success = delete_customer(customer_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete customer")
+    
+    return {
+        "success": True,
+        "message": f"Customer with ID {customer_id} deleted successfully"
     }

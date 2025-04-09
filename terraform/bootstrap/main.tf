@@ -31,9 +31,9 @@ provider "google-beta" {
 
 # Enable billing for each project
 resource "google_billing_project_info" "billing" {
-  for_each = var.project_ids
-
-  project         = each.value
+  for_each = var.skip_billing_setup ? {} : var.project_ids
+  
+  project_id     = each.value
   billing_account = var.billing_account_id
 }
 
@@ -56,8 +56,8 @@ resource "google_project_service" "firestore_api" {
 }
 
 # Grant necessary permissions to Firebase Admin service accounts
+# Only create this for projects with Firebase initialized
 resource "google_project_iam_member" "firebase_admin_permissions" {
-  # Only create this for projects with Firebase initialized
   for_each = {
     for k, v in var.project_ids : k => v
     if lookup(local.firebase_initialized, k, false)
@@ -104,22 +104,43 @@ resource "google_project_service" "required_apis" {
   disable_on_destroy        = false
 }
 
-# Create Artifact Registry repositories
-# Repository already exists - skipping creation
-# If you need to modify repository settings, please do so manually or remove this comment block
-
+# Try to check for existing Artifact Registry repository
 data "google_artifact_registry_repository" "existing_repo" {
   for_each = var.project_ids
-
-  location = local.region
+  
+  location      = local.region
   repository_id = var.repo_name
-  project = each.value
+  project       = each.value
 }
 
-# Reference to existing repository for IAM bindings
-locals {
-  repository_name = var.repo_name
+# Create Artifact Registry repositories only if they don't exist yet
+resource "google_artifact_registry_repository" "api_repo" {
+  for_each = {
+    for k, v in var.project_ids : k => v
+    if !can(data.google_artifact_registry_repository.existing_repo[k])
+  }
+
+  provider = google-beta
+  project  = each.value
+  location = local.region
+  
+  repository_id = var.repo_name
+  description   = "Docker repository for ${var.service_name}"
+  format        = "DOCKER"
+
+  depends_on = [google_project_service.required_apis]
+  
+  # This lifecycle block helps handle existing repositories
+  lifecycle {
+    ignore_changes = [
+      description, 
+      format,
+      repository_id
+    ]
+    prevent_destroy = true
+  }
 }
+
 # Enable Cloud Build service account
 resource "google_project_service_identity" "cloudbuild" {
   for_each = var.project_ids
@@ -138,7 +159,7 @@ resource "google_artifact_registry_repository_iam_member" "ci_cd_access" {
   provider   = google-beta
   project    = each.value
   location   = local.region
-  repository = local.repository_name
+  repository = var.repo_name
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${google_project_service_identity.cloudbuild[each.key].email}"
 
@@ -152,7 +173,7 @@ resource "google_artifact_registry_repository_iam_member" "cloud_run_access" {
   provider   = google-beta
   project    = each.value
   location   = local.region
-  repository = local.repository_name
+  repository = var.repo_name
   role       = "roles/artifactregistry.reader"
   member     = "serviceAccount:service-${data.google_project.project[each.key].number}@serverless-robot-prod.iam.gserviceaccount.com"
 
@@ -164,4 +185,32 @@ data "google_project" "project" {
   for_each = var.project_ids
   
   project_id = each.value
+}
+
+# Initialize Firestore database - using Native Mode
+# Use conditional creation to avoid errors with existing databases
+resource "google_firestore_database" "database" {
+  for_each = {
+    for k, v in var.project_ids : k => v
+    # Only create if not found in existing list (checked in the bootstrap.sh script)
+    if var.create_firestore_db
+  }
+  
+  project     = each.value
+  name        = "(default)"
+  location_id = local.region
+  type        = var.firestore_mode  # Use the variable set by firestore_setup.sh
+  
+  # Better handling for database that might have been created manually
+  # or is in a different mode
+  lifecycle {
+    prevent_destroy = true
+    # If database was already created in a different mode, we'll ignore it
+    ignore_changes = [location_id, type, concurrency_mode, app_engine_integration_mode]
+  }
+  
+  depends_on = [
+    google_project_service.required_apis,
+    google_firebase_project.default
+  ]
 }

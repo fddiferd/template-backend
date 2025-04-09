@@ -305,6 +305,14 @@ USER_EMAIL=$(git config --get user.email)
 echo "Setting up Terraform configuration..."
 echo "Note: terraform.tfvars files are gitignored and will be regenerated on each bootstrap run"
 
+# Check if project exists
+if gcloud projects describe "$PROJECT_NAME" &> /dev/null; then
+  # For existing projects, we'll set a flag to skip unnecessary Terraform operations
+  EXISTING_PROJECT="true"
+else
+  EXISTING_PROJECT="false"
+fi
+
 # Create terraform.tfvars file for bootstrap
 mkdir -p terraform/bootstrap
 cat > terraform/bootstrap/terraform.tfvars << EOF
@@ -316,6 +324,7 @@ project_ids = {
 region = "$REGION"
 service_name = "$SERVICE_NAME"
 repo_name = "$REPO_NAME"
+skip_billing_setup = $EXISTING_PROJECT
 EOF
 echo "✅ Bootstrap Terraform variables created"
 
@@ -330,6 +339,7 @@ user_email = "$USER_EMAIL"
 region = "$REGION"
 service_name = "$SERVICE_NAME"
 repo_name = "$REPO_NAME"
+skip_resource_creation = $EXISTING_PROJECT
 EOF
 echo "✅ CICD Terraform variables created"
 
@@ -348,100 +358,202 @@ else
   echo "DEPLOYING INFRASTRUCTURE"
   echo "------------------------"
   
-  # Check if Artifact Registry repository already exists
-  echo "Checking for existing Artifact Registry repository..."
-  REPO_EXISTS=$(gcloud artifacts repositories list --project="$PROJECT_NAME" --location="$REGION" --filter="name:$REPO_NAME" --format="value(name)" 2>/dev/null || echo "")
-  
+  # Before Terraform, create proper service accounts for the project
+  echo
+  echo "SETTING UP SERVICE ACCOUNTS"
+  echo "----------------------------"
+
+  # Create proper service account for the project
+  echo "Creating service account for $PROJECT_NAME..."
+  SA_NAME="cloudrun-${MODE}-sa"
+  SA_EMAIL="${SA_NAME}@${PROJECT_NAME}.iam.gserviceaccount.com"
+  EXISTING_SA=$(gcloud iam service-accounts describe $SA_EMAIL --project=$PROJECT_NAME 2>/dev/null || echo "")
+
+  if [[ -z "$EXISTING_SA" ]]; then
+    echo "Creating service account $SA_NAME..."
+    gcloud iam service-accounts create $SA_NAME --project=$PROJECT_NAME --display-name="Cloud Run Service Account for $MODE" || {
+      echo "⚠️ Could not create service account $SA_NAME. You may need to create it manually."
+      echo "Command to create manually: gcloud iam service-accounts create $SA_NAME --project=$PROJECT_NAME"
+    }
+  else
+    echo "✅ Service account $SA_EMAIL already exists"
+  fi
+
+  # Check for existing Artifact Registry repository
+  REPO_EXISTS=$(gcloud artifacts repositories describe "$REPO_NAME" --project="$PROJECT_NAME" --location="$REGION" 2>/dev/null || echo "")
+
   if [[ -n "$REPO_EXISTS" ]]; then
     echo "✅ Artifact Registry repository $REPO_NAME already exists"
-    
-    # Create a custom version of the Terraform file without the repository creation
-    echo "Creating custom Terraform configuration to skip repository creation..."
-    cp terraform/bootstrap/main.tf terraform/bootstrap/main.tf.original
-    
-    # Use sed to comment out the entire resource block
-    sed -i.bak '/resource "google_artifact_registry_repository" "api_repo"/,/^}/c\
-# Repository already exists - skipping creation\
-# If you need to modify repository settings, please do so manually or remove this comment block\
-\
-data "google_artifact_registry_repository" "existing_repo" {\
-  for_each = var.project_ids\
-\
-  location = local.region\
-  repository_id = var.repo_name\
-  project = each.value\
-}\
-\
-# Reference to existing repository for IAM bindings\
-locals {\
-  repository_name = var.repo_name\
-}' terraform/bootstrap/main.tf
-    
-    # Update IAM member resources to use the data source instead
-    sed -i.bak 's/google_artifact_registry_repository.api_repo\[each.key\].location/local.region/g' terraform/bootstrap/main.tf
-    sed -i.bak 's/google_artifact_registry_repository.api_repo\[each.key\].name/local.repository_name/g' terraform/bootstrap/main.tf
+    # Add a note to the Terraform variables file to avoid recreation
+    echo "# Repository already exists - creation will be skipped" >> terraform/bootstrap/terraform.tfvars
+  else
+    echo "Creating Artifact Registry repository $REPO_NAME..."
+    # Let Terraform create the repository
+    echo "# Repository doesn't exist - will be created by Terraform" >> terraform/bootstrap/terraform.tfvars
   fi
+
+  # Run the Firestore setup script
+  echo "Running Firestore setup script..."
+  ./scripts/setup/firestore_setup.sh
 
   # Initialize and apply Terraform for bootstrap
   echo "Running Terraform bootstrap..."
   cd terraform/bootstrap
   terraform init
-  
-  # Run apply with auto-approve and suppress errors about existing resources
-  terraform apply -auto-approve || {
-    echo "⚠️ Terraform apply had errors, but we'll continue deployment if critical infrastructure exists."
-    # Check if we can still deploy the application
-    if [[ -z "$(gcloud artifacts repositories list --project=$PROJECT_NAME --location=$REGION --filter="name:$REPO_NAME" --format="value(name)" 2>/dev/null)" ]]; then
-      echo "❌ Error: Artifact Registry repository $REPO_NAME is missing, cannot continue."
-      echo "Please check the Terraform errors and try again."
-      exit 1
-    else
-      echo "✅ Artifact Registry repository $REPO_NAME exists, continuing with deployment."
-    fi
-  }
-  
-  # Restore original Terraform file if we modified it
-  if [[ -n "$REPO_EXISTS" ]] && [[ -f "terraform/bootstrap/main.tf.original" ]]; then
-    mv terraform/bootstrap/main.tf.original terraform/bootstrap/main.tf
+
+  # If this is an existing project, only apply if explicitly requested
+  if [[ "$EXISTING_PROJECT" == "true" ]]; then
+    echo "Project already exists, skipping bootstrap Terraform apply."
+    echo "To force apply, run: cd terraform/bootstrap && terraform apply"
+  else
+    # Run apply with auto-approve for new projects
+    terraform apply -auto-approve || {
+      echo "⚠️ Terraform apply had errors, but we'll continue if non-critical."
+      # Check if we can still deploy the application
+      if [[ -z "$(gcloud artifacts repositories list --project=$PROJECT_NAME --location=$REGION --filter="name:$REPO_NAME" --format="value(name)" 2>/dev/null)" ]]; then
+        echo "❌ Error: Critical infrastructure is missing, cannot continue."
+        echo "Please check the Terraform errors and try again."
+        exit 1
+      else
+        echo "✅ Critical infrastructure exists, continuing with deployment."
+      fi
+    }
   fi
-  
+
   cd ../..
   echo "✅ Bootstrap Terraform completed"
 
-  # Initialize and apply Terraform for CICD
-  echo "Running Terraform CICD setup..."
-  cd terraform/cicd
-  
-  # Check for state issues related to wrong project references
-  TERRAFORM_INIT_OUTPUT=$(terraform init 2>&1)
-  
-  # Check for project reference issues in the state files
-  WRONG_PROJECT_REFERENCE=$(terraform state list 2>/dev/null | grep "wedge-golf" || echo "")
-  
-  if [[ -n "$WRONG_PROJECT_REFERENCE" ]]; then
-    echo "⚠️ Found references to 'wedge-golf' project in Terraform state"
-    echo "   This can cause permission errors when deploying"
-    echo "   Resetting Terraform state to fix references..."
-    
-    # Backup the state file
-    if [[ -f "terraform.tfstate" ]]; then
-      cp terraform.tfstate terraform.tfstate.backup.$(date +%s)
+  # Firebase Setup Guidance
+  echo 
+  echo "FIREBASE SETUP"
+  echo "-------------"
+  echo "For Firebase integration, you need to set up Firebase in the Google Cloud Console:"
+  echo "Steps:"
+  echo "1. Go to: https://console.firebase.google.com/project/$PROJECT_NAME/overview"
+  echo "2. Complete the Firebase setup if not already done"
+  echo "3. Create a service account key for Firebase Admin SDK if needed"
+  echo "4. Place the key file in service_accounts/firebase-${MODE}.json"
+
+  # Check if Firebase service account key exists
+  if [[ ! -f "service_accounts/firebase-${MODE}.json" ]]; then
+    echo
+    echo "⚠️ Firebase service account key not found. You need to create one."
+    echo "Would you like to open Firebase Console now? (y/n)"
+    read -r OPEN_FIREBASE
+    if [[ "$OPEN_FIREBASE" == "y" || "$OPEN_FIREBASE" == "Y" ]]; then
+      # Try to open URL using appropriate command based on OS
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "https://console.firebase.google.com/project/$PROJECT_NAME/settings/serviceaccounts/adminsdk"
+      elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "https://console.firebase.google.com/project/$PROJECT_NAME/settings/serviceaccounts/adminsdk" &>/dev/null
+      else
+        echo "Please manually visit: https://console.firebase.google.com/project/$PROJECT_NAME/settings/serviceaccounts/adminsdk"
+      fi
+      
+      echo "Once you've downloaded the key file, please rename it to firebase-${MODE}.json"
+      echo "and place it in the service_accounts directory."
+      echo
+      echo "Have you completed this step? (y/n)"
+      read -r FIREBASE_KEY_DONE
+      if [[ "$FIREBASE_KEY_DONE" != "y" && "$FIREBASE_KEY_DONE" != "Y" ]]; then
+        echo "⚠️ You'll need to create the Firebase service account key before the application will work properly."
+      fi
     fi
-    
-    # Remove the state file to start fresh
-    rm -f terraform.tfstate terraform.tfstate.backup
-    terraform init
   else
-    echo "✅ No state conflicts detected"
+    echo "✅ Firebase service account key found at service_accounts/firebase-${MODE}.json"
   fi
+
+  # CICD Setup including GitHub connection guidance
+  echo 
+  echo "GITHUB CONNECTION FOR CI/CD"
+  echo "--------------------------"
+
+  # First check if GitHub is connected
+  GITHUB_CONNECTED=false
+  GITHUB_ALREADY_CONNECTED=${GITHUB_ALREADY_CONNECTED:-false}
   
-  # Apply the CICD Terraform configuration
-  terraform apply -auto-approve || {
-    echo "⚠️ Terraform CICD setup had errors, but we'll continue."
-    echo "You may need to set up CI/CD triggers manually."
-  }
-  cd ../..
-  echo "✅ CICD Terraform completed"
+  # Multiple ways to check if GitHub is connected
+  if [[ "$GITHUB_ALREADY_CONNECTED" == "true" ]]; then
+    echo "✅ GitHub connection confirmed as already authorized via GITHUB_ALREADY_CONNECTED flag"
+    GITHUB_CONNECTED=true
+  else
+    # Try multiple methods to detect GitHub connection
+    GITHUB_CONNECTED_REPOS=$(gcloud beta builds repositories list --project="$PROJECT_NAME" --format="value(name)" 2>/dev/null | grep -i "github" || echo "")
+    GITHUB_CONNECTED_TRIGGERS=$(gcloud beta builds triggers list --project="$PROJECT_NAME" --format="value(github)" 2>/dev/null || echo "")
+    
+    if [[ -n "$GITHUB_CONNECTED_REPOS" || -n "$GITHUB_CONNECTED_TRIGGERS" ]]; then
+      echo "✅ GitHub connection detected in your GCP project"
+      GITHUB_CONNECTED=true
+      
+      # Recommend setting the flag for future runs
+      echo "Add GITHUB_ALREADY_CONNECTED=true to your .env file to skip detection in the future"
+    else
+      echo "⚠️ GitHub connection not detected. You need to connect GitHub to Cloud Build."
+      echo "Steps:"
+      echo "1. Go to: https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME"
+      echo "2. Select your GitHub repository: $GITHUB_OWNER/$REPO_NAME"
+      echo "3. Install the Cloud Build GitHub app if needed"
+      echo
+      echo "Would you like to open the GitHub connection page now? (y/n)"
+      read -r OPEN_GITHUB
+      if [[ "$OPEN_GITHUB" == "y" || "$OPEN_GITHUB" == "Y" ]]; then
+        # Try to open URL using appropriate command based on OS
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          open "https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+          xdg-open "https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME" &>/dev/null
+        else
+          echo "Please manually visit: https://console.cloud.google.com/cloud-build/triggers/connect?project=$PROJECT_NAME"
+        fi
+        
+        echo ""
+        echo "Please confirm when you've completed the GitHub connection setup (y/n):"
+        read -r GITHUB_SETUP_DONE
+        if [[ "$GITHUB_SETUP_DONE" == "y" || "$GITHUB_SETUP_DONE" == "Y" ]]; then
+          GITHUB_CONNECTED=true
+          echo "✅ GitHub connection confirmed"
+          echo "Add GITHUB_ALREADY_CONNECTED=true to your .env file to skip this step next time"
+        fi
+      fi
+    fi
+  fi
+
+  # If GitHub is connected, proceed with deployment setup
+  if [[ "$GITHUB_CONNECTED" == "true" ]]; then
+    # Mark GitHub as connected in Terraform configuration
+    sed -i'.bak' 's/skip_resource_creation = .*/skip_resource_creation = false/' terraform/cicd/terraform.tfvars
+    rm -f terraform/cicd/terraform.tfvars.bak 2>/dev/null || true
+    
+    # Initialize and apply Terraform for CICD
+    echo "Running Terraform CICD setup for creating triggers..."
+    cd terraform/cicd
+    terraform init
+    
+    # Apply the CICD Terraform configuration
+    terraform apply -auto-approve || {
+      echo "⚠️ There were some errors in the CICD setup, but we'll continue."
+      echo "These are typically not critical and deployment can still proceed."
+    }
+    cd ../..
+    echo "✅ CICD Terraform setup completed"
+    
+    # Run initial deployment
+    echo
+    echo "DEPLOYING APPLICATION"
+    echo "---------------------"
+    echo "Initiating first deployment now..."
+    
+    # Run deploy script if it exists
+    if [[ -f "./scripts/cicd/deploy.sh" ]]; then
+      ./scripts/cicd/deploy.sh
+    else
+      echo "⚠️ Deployment script not found at ./scripts/cicd/deploy.sh"
+      echo "Please check your project structure or deploy manually."
+    fi
+  else
+    echo "⚠️ GitHub connection is required for deployment."
+    echo "Please connect GitHub to Cloud Build and then run this script again or deploy manually."
+  fi
 fi
 
 echo

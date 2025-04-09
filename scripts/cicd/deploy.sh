@@ -176,16 +176,35 @@ echo "✅ Container pushed to Artifact Registry"
 echo
 echo "DEPLOYING TO CLOUD RUN"
 echo "---------------------"
-
-# Deploy to Cloud Run
 echo "Deploying to Cloud Run in $REGION..."
-gcloud run deploy $SERVICE_NAME \
-  --image $IMAGE_NAME:$TAG \
+
+# Check if Firebase service account exists
+FIREBASE_FILE="service_accounts/firebase-${MODE}.json"
+if [[ ! -f "$FIREBASE_FILE" ]]; then
+  echo "⚠️ Firebase service account file not found at $FIREBASE_FILE"
+  echo "Some Firebase features may not work. Run bootstrap.sh to set up Firebase."
+fi
+
+# Additional environment variables as needed
+ENV_VARS=()
+ENV_VARS+=("ENVIRONMENT=$MODE")
+ENV_VARS+=("FIREBASE_CRED_PATH=service_accounts/firebase-${MODE}.json")
+ENV_VARS+=("HOST=0.0.0.0")
+
+# Set Cloud Run service account name
+SERVICE_ACCOUNT="cloudrun-${MODE}-sa@${PROJECT_NAME}.iam.gserviceaccount.com"
+echo "Using service account: $SERVICE_ACCOUNT"
+
+# Deploy the container to Cloud Run
+gcloud run deploy "$SERVICE_NAME" \
+  --image "$IMAGE_NAME:$TAG" \
+  --project "$PROJECT_NAME" \
+  --region "$REGION" \
   --platform managed \
-  --region $REGION \
+  --set-env-vars="$(IFS=,; echo "${ENV_VARS[*]}")" \
   --allow-unauthenticated \
-  --set-env-vars="ENVIRONMENT=$MODE" \
-  --project $PROJECT_NAME
+  --service-account="${SERVICE_ACCOUNT}" \
+  --quiet
 
 # Get deployed URL
 SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --platform managed --region $REGION --project $PROJECT_NAME --format 'value(status.url)')

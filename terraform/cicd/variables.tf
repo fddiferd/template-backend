@@ -86,3 +86,16 @@ variable "request_concurrency" {
   type        = number
   default     = 80
 }
+
+variable "github_token" {
+  description = "GitHub Personal Access Token for private repositories (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "skip_resource_creation" {
+  description = "Set to true to skip creating resources that might already exist (helps avoid errors)"
+  type        = bool
+  default     = false
+}

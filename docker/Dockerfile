@@ -2,27 +2,26 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy project definition
+# Copy project files
 COPY pyproject.toml ./
 COPY config ./
-
-# Copy application code
 COPY app/ ./app/
 COPY README.md ./
 
-# Install dependencies directly from pyproject.toml
+# Copy Firebase service account credentials
+COPY service_accounts/ ./service_accounts/
+
+# Install dependencies
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
-# Set environment variables
-ENV PORT=8000
-ENV HOST=0.0.0.0
-ENV PYTHONUNBUFFERED=1
-# Set default environment to production for safety
-ENV ENVIRONMENT=production
-
 # Expose port
-EXPOSE 8000
+EXPOSE 8080
 
-# Run the application with uvicorn
+# Set environment variables
+ENV HOST=0.0.0.0
+ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
+
+# Start the application
 CMD ["uvicorn", "app.run:app", "--host", "0.0.0.0", "--port", "8080"]
