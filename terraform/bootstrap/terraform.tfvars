@@ -1,6 +1,8 @@
+environment = "dev"
+billing_account_id = "01224A-A47992-31AB42"
 project_ids = {
-  dev     = "wedge-golf-dev"
-  staging = "wedge-golf-staging"
-  prod    = "wedge-golf-prod"
+  dev = "fast-api-app-fddiferd"
 }
-billing_account_id = "01B60B-D120EE-D4887A"
+region = "us-central1"
+service_name = "fast-api"
+repo_name = "fast-api-app"

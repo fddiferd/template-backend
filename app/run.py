@@ -1,10 +1,26 @@
 # FastAPI entry point
 import os
+import re
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 
+# Read project_id from config file
+def get_project_id():
+    try:
+        with open('config', 'r') as config_file:
+            for line in config_file:
+                if line.startswith('gcp_project_id'):
+                    match = re.search(r"'([^']+)'", line)
+                    if match:
+                        return match.group(1)
+    except Exception as e:
+        logging.error(f"Error reading config file: {e}")
+    return "fast-api-app"  # Default value if config can't be read
 
+# Get project ID
+project_id = get_project_id()
+api_title = f"{project_id.replace('-', ' ').title()} API"
 
 # Configure logging
 logging.basicConfig(
@@ -15,8 +31,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="Wedge Golf API",
-    description="Backend API for Wedge Golf",
+    title=api_title,
+    description=f"Backend API for {project_id}",
     version="0.1.0",
 )
 
@@ -36,7 +52,7 @@ logger.info(f"Starting API in {environment} environment")
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to Wedge Golf API",
+        "message": f"Welcome to {api_title}",
         "environment": environment,
         "status": "healthy"
     }
@@ -49,7 +65,7 @@ async def health_check():
 @app.get("/api/v1/status")
 async def status():
     return {
-        "service": "Wedge Golf API",
+        "service": api_title,
         "environment": environment,
         "version": "0.1.0",
         "unauthenticated": True

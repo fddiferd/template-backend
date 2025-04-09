@@ -1,2 +1,8 @@
-
 environment = "dev"
+project_id = "fast-api-app-fddiferd"
+github_owner = "fddiferd"
+github_repo = "fast-api-app"
+user_email = "fddiferd@gmail.com"
+region = "us-central1"
+service_name = "fast-api"
+repo_name = "fast-api-app"

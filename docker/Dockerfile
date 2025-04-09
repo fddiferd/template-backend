@@ -2,17 +2,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy project files
+# Copy project definition
 COPY pyproject.toml ./
-COPY poetry.lock ./
+
+# Copy application code
 COPY app/ ./app/
 COPY README.md ./
 
-# Install dependencies using pip
-RUN pip install --upgrade pip && \
-    pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-dev --no-interaction --no-ansi
+# Install dependencies directly from pyproject.toml
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -e .
 
 # Set environment variables
 ENV PORT=8000
