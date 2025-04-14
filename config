@@ -2,7 +2,7 @@
 
 
 # Base project ID for GCP projects
-gcp_project_id: str = 'wb2-backend-demo'
+gcp_project_id: str = 'wb3-backend-demo'
 
 # Environments for deployment
 environments: list[str] = ["dev", "staging", "prod"]
