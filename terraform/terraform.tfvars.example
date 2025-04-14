@@ -1,0 +1,15 @@
+# Rename this file to terraform.tfvars and update the values
+project_id = "your-gcp-project-id"
+billing_account_id = "01B60B-D120EE-D4887A"  # Billing account ID to enable project billing
+region     = "us-central1"
+app_name   = "fastapi-backend"
+image      = "gcr.io/your-project-id/fastapi-app:latest"
+
+# Optional - uncomment and modify if needed
+# database_name = "app-database"
+# service_account_name = "fastapi-service-account"
+# container_port = 8000
+# min_instances = 0
+# max_instances = 10
+# memory = "512Mi"
+# cpu = "1" 

@@ -1,3 +1,0 @@
-#!/bin/bash
-# Simple wrapper to run the bootstrap script
-./scripts/setup/bootstrap.sh "$@" 

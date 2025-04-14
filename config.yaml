@@ -1,0 +1,44 @@
+# Project Configuration
+project:
+  name: wedge-golf
+  id: wedge-golf
+  description: "Wedge Golf Application"
+  region: us-central1
+  zone: us-central1-a
+
+# Infrastructure Configuration
+infrastructure:
+  billing_account_id: ""  # Will be provided during bootstrap
+
+# Application Configuration  
+application:
+  backend:
+    name: wedge-golf-api
+    port: 8080
+  frontend:
+    name: wedge-golf-web
+    port: 3000
+    
+# Environments Configuration
+environments:
+  dev:
+    deployment_branch: "feature/*"
+    resources:
+      memory: "512Mi"
+      cpu: "1"
+      min_instances: 0
+      max_instances: 2
+  staging:
+    deployment_branch: "master"
+    resources:
+      memory: "1Gi"
+      cpu: "1"
+      min_instances: 1
+      max_instances: 3
+  prod:
+    deployment_branch: "release"
+    resources:
+      memory: "2Gi"
+      cpu: "2"
+      min_instances: 2
+      max_instances: 5 

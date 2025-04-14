@@ -1,49 +1,5 @@
 steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA', '-f', 'docker/Dockerfile', '.']
-  
-  # Push the container image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA']
-  
-  # Deploy container image to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - '${_SERVICE_NAME}'
-      - '--image'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
-      - '--region'
-      - '${_REGION}'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--port'
-      - '8000'
-      - '--memory'
-      - '512Mi'
-      - '--set-env-vars'
-      - 'ENVIRONMENT=dev,FIREBASE_CRED_PATH=service_accounts/firebase-dev.json'
-      - '--service-account'
-      - 'cloudrun-${_PROJECT_ENV}-sa@$PROJECT_ID.iam.gserviceaccount.com'
-  
-# Tag the image for easier reference
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/wedge-golf-dev-fddiferd/frontend:dev', '--build-arg', 'BACKEND_URL=https://backend-api-naywjuueda-uc.a.run.app', 'frontend/']
 images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO_NAME}/${_SERVICE_NAME}:$COMMIT_SHA'
-
-# Set timeout to 20 minutes
-timeout: 1200s
-
-# Substitution variables
-substitutions:
-  _SERVICE_NAME: backend-rest-api
-  _REPO_NAME: template-backend
-  _REGION: us-central1
-  _PROJECT_ENV: dev
-
-# Logging configuration to fix service account error  
-options:
-  logging: CLOUD_LOGGING_ONLY 
+- 'gcr.io/wedge-golf-dev-fddiferd/frontend:dev'

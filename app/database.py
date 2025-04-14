@@ -1,1 +1,0 @@
-# Firestore initialization logic
