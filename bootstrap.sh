@@ -475,6 +475,18 @@ for cmd in gcloud firebase jq; do
   fi
 done
 
+# Read project ID from config.yaml
+if [ -f "config.yaml" ]; then
+  CONFIG_PROJECT_ID=$(grep "id:" config.yaml | head -n1 | sed 's/.*id: //' | sed 's/"//g')
+  if [ -n "$CONFIG_PROJECT_ID" ]; then
+    echo -e "${BLUE}Using project ID from config.yaml: $CONFIG_PROJECT_ID${NC}"
+  else
+    echo -e "${YELLOW}Warning: Could not find project ID in config.yaml${NC}"
+  fi
+else
+  echo -e "${YELLOW}Warning: config.yaml not found${NC}"
+fi
+
 # Check if user is logged in to gcloud and firebase
 echo "Checking gcloud authentication..."
 gcloud auth list --filter=status:ACTIVE --format="value(account)" > /dev/null 2>&1
@@ -507,9 +519,9 @@ bootstrap_firebase() {
     else
       developer=$(whoami)
     fi
-    PROJECT_ID="${PROJECT_ID:-test-wedge-golf}-$env-$developer"
+    PROJECT_ID="${CONFIG_PROJECT_ID}-$env-$developer"
   else
-    PROJECT_ID="${PROJECT_ID:-test-wedge-golf}-$env"
+    PROJECT_ID="${CONFIG_PROJECT_ID}-$env"
   fi
   
   echo -e "${GREEN}Bootstrapping Firebase for project: $PROJECT_ID${NC}"
