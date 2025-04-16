@@ -1,22 +1,20 @@
 # Project Configuration
 project:
-  name: wedge-golf
-  id: wedge-golf
-  description: "Wedge Golf Application"
+  name: Frank D Diferd Demo App
+  id: fdd-my-demo-app
+  description: "Demo App for FDD"
   region: us-central1
   zone: us-central1-a
 
 # Infrastructure Configuration
 infrastructure:
-  billing_account_id: ""  # Will be provided during bootstrap
+  # No billing_account_id here, it should be provided via environment variables
 
 # Application Configuration  
 application:
   backend:
-    name: wedge-golf-api
     port: 8080
   frontend:
-    name: wedge-golf-web
     port: 3000
     
 # Environments Configuration

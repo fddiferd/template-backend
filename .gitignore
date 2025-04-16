@@ -1,6 +1,7 @@
 # Github Actions Key
 secrets/github-actions-key.json
 
+
 *.venv*
 
 # Environment variables
@@ -96,3 +97,6 @@ cloudbuild.yaml
 secrets/
 *-admin-key-*.json
 firebase-credentials*.json 
+# Firebase credentials
+firebase-admin-key*.json
+secrets/

@@ -1,4 +1,4 @@
-# Wedge Golf CICD Project
+# Backend Template
 
 A comprehensive Cloud Run application with multi-environment CI/CD pipelines for the Wedge Golf project.
 

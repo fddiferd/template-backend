@@ -39,7 +39,7 @@ resource "google_service_account" "firebase_admin" {
   description  = "Service account for Firebase Admin SDK"
   
   lifecycle {
-    ignore_changes = all
+    ignore_changes = all  # Prevent recreation attempts
   }
 }
 
@@ -149,6 +149,7 @@ resource "google_service_account_key" "firebase_key" {
   service_account_id = google_service_account.firebase_admin.name
   
   lifecycle {
-    ignore_changes = all
+    ignore_changes = all  # Prevent recreation attempts
+    create_before_destroy = true  # Create new key before destroying old one
   }
 } 

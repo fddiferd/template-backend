@@ -87,6 +87,13 @@ resource "google_secret_manager_secret" "firebase_credentials" {
     auto {}
   }
   
+  # Add lifecycle rule to handle if the secret already exists
+  lifecycle {
+    ignore_changes = [
+      replication
+    ]
+  }
+  
   depends_on = [google_project_service.services["secretmanager.googleapis.com"]]
 }
 
@@ -122,7 +129,7 @@ resource "google_cloud_run_service_iam_member" "public_access" {
 
 # Backend Service
 resource "google_cloud_run_service" "backend" {
-  name     = var.backend_service_name
+  name     = var.backend_service_name != "" ? var.backend_service_name : "${local.project_id}-api"
   location = local.region
   project  = local.actual_project_id
 
@@ -197,7 +204,7 @@ resource "google_cloud_run_service" "backend" {
 
 # Frontend Service
 resource "google_cloud_run_service" "frontend" {
-  name     = var.frontend_service_name
+  name     = var.frontend_service_name != "" ? var.frontend_service_name : "${local.project_id}-web"
   location = local.region
   project  = local.actual_project_id
 

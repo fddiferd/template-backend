@@ -29,7 +29,7 @@ resource "google_project" "project" {
   
   name            = "${local.project_name}-${upper(local.env)}"
   project_id      = local.actual_project_id
-  billing_account = var.billing_account_id
+  billing_account = var.billing_account_id != "" ? var.billing_account_id : null
   auto_create_network = true
   
   lifecycle {
@@ -40,14 +40,14 @@ resource "google_project" "project" {
       project_id,
       auto_create_network
     ]
-    # Prevent accidental project deletion
-    prevent_destroy = true
+    # Allow project to be modified or recreated
+    prevent_destroy = false
   }
 }
 
 # Link billing account to project
 resource "google_billing_project_info" "billing_link" {
-  count = local.project_exists ? 0 : 1
+  count = local.project_exists || var.billing_account_id == "" ? 0 : 1
   
   project         = local.actual_project_id 
   billing_account = var.billing_account_id

@@ -23,11 +23,7 @@ variable "developer_name" {
 variable "billing_account_id" {
   description = "The ID of the billing account to associate with the project"
   type        = string
-  
-  validation {
-    condition     = length(var.billing_account_id) > 0
-    error_message = "Billing account ID must be provided."
-  }
+  default     = ""
 }
 
 variable "region" {
@@ -76,13 +72,13 @@ variable "firestore_location" {
 variable "backend_service_name" {
   description = "Name of the backend Cloud Run service"
   type        = string
-  default     = "backend-api"
+  default     = ""
 }
 
 variable "frontend_service_name" {
   description = "Name of the frontend Cloud Run service"
   type        = string
-  default     = "frontend-web"
+  default     = ""
 }
 
 variable "backend_container_image" {

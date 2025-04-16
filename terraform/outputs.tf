@@ -24,8 +24,8 @@ output "app_storage_bucket" {
 }
 
 output "firestore_database" {
-  description = "Firestore Database ID"
-  value       = try(google_firestore_database.database.name, "")
+  description = "The Firestore database name"
+  value       = try(google_firestore_database.firestore.name, "")
 }
 
 output "environment" {
